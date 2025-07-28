@@ -35,13 +35,16 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
         onLocationUpdate(position.coords.latitude, position.coords.longitude);
       },
       (error) => {
-        console.error('Geolocation error details:', {
-          code: error.code,
-          message: error.message,
-          PERMISSION_DENIED: error.PERMISSION_DENIED,
-          POSITION_UNAVAILABLE: error.POSITION_UNAVAILABLE,
-          TIMEOUT: error.TIMEOUT
-        });
+        console.error('Geolocation error details:');
+        console.error('Error code:', error.code);
+        console.error('Error message:', error.message);
+        console.error('Error constants - PERMISSION_DENIED:', error.PERMISSION_DENIED, 'POSITION_UNAVAILABLE:', error.POSITION_UNAVAILABLE, 'TIMEOUT:', error.TIMEOUT);
+
+        // Also log a readable interpretation
+        const errorType = error.code === error.PERMISSION_DENIED ? 'PERMISSION_DENIED' :
+                         error.code === error.POSITION_UNAVAILABLE ? 'POSITION_UNAVAILABLE' :
+                         error.code === error.TIMEOUT ? 'TIMEOUT' : 'UNKNOWN';
+        console.error('Error type:', errorType);
         
         let status: typeof locationStatus = 'denied';
         let message = '';
