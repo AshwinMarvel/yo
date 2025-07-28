@@ -311,7 +311,18 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
                         {boat.location.lat.toFixed(6)}, {boat.location.lng.toFixed(6)}
                       </div>
                       <div><strong>Last Update:</strong> {new Date(boat.lastUpdate).toLocaleTimeString()}</div>
-                      {boat.boatId === 'FISHER-002' && (
+                      {/* Show dynamic zone info for tracked vessels */}
+                      {isCurrentUser && currentBoat && (
+                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                          <div className="text-red-800 font-medium flex items-center">
+                            📍 <span className="ml-1">Live Dynamic Zone Active</span>
+                          </div>
+                          <div className="text-red-600 text-xs mt-1">
+                            1.5km restricted zone follows your live GPS location
+                          </div>
+                        </div>
+                      )}
+                      {!isCurrentUser && boat.boatId === 'FISHER-002' && !currentBoat && (
                         <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-xs">
                           <div className="text-orange-800 font-medium flex items-center">
                             ⚠️ <span className="ml-1">Dynamic Zone Active</span>
