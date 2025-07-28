@@ -79,17 +79,17 @@ const createCoastGuardIcon = () => {
   });
 };
 
-// Static prohibited zones
+// Static prohibited zones around Chennai coast
 const staticProhibitedZones = [
   {
     name: 'Marine Protected Area',
-    center: [37.7749, -122.4194] as [number, number],
+    center: [13.0627, 80.2907] as [number, number],
     radius: 1000,
     color: '#EF4444'
   },
   {
-    name: 'Spawning Ground',
-    center: [37.7849, -122.4094] as [number, number],
+    name: 'Coral Reef Spawning Ground',
+    center: [13.1027, 80.2607] as [number, number],
     radius: 800,
     color: '#F59E0B'
   }
@@ -145,8 +145,8 @@ const MapUpdater: React.FC<{ boats: BoatData[]; userType: string; coastGuardLoca
 const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coastGuardLocation, onBoatSelect }) => {
   const mapRef = useRef<L.Map>(null);
 
-  // Default center (San Francisco Bay area)
-  const defaultCenter: [number, number] = [37.7749, -122.4194];
+  // Default center (Chennai, Tamil Nadu coast)
+  const defaultCenter: [number, number] = [13.0827, 80.2707];
   const defaultZoom = 12;
 
   // Create dynamic prohibited zones that follow vessel locations
