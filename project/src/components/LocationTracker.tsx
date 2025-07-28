@@ -4,9 +4,10 @@ import { MapPin, Satellite, AlertCircle, CheckCircle } from 'lucide-react';
 interface LocationTrackerProps {
   onLocationUpdate: (lat: number, lng: number) => void;
   isTracking: boolean;
+  userType?: 'fisherman' | 'coastguard';
 }
 
-const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isTracking }) => {
+const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isTracking, userType = 'fisherman' }) => {
   const [locationStatus, setLocationStatus] = useState<'requesting' | 'granted' | 'denied' | 'unavailable'>('requesting');
   const [accuracy, setAccuracy] = useState<number>(0);
   const [lastUpdate, setLastUpdate] = useState<number>(0);
@@ -71,8 +72,8 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
     <div className="bg-white rounded-xl shadow-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-          <MapPin className="h-5 w-5 mr-2 text-blue-600" />
-          GPS Location Tracking
+          <MapPin className={`h-5 w-5 mr-2 ${userType === 'coastguard' ? 'text-red-600' : 'text-blue-600'}`} />
+          {userType === 'coastguard' ? 'Coast Guard Position' : 'GPS Location Tracking'}
         </h3>
         {getStatusIcon()}
       </div>
@@ -111,7 +112,7 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
               <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 mr-2 flex-shrink-0" />
               <div className="text-sm text-red-700">
                 <p className="font-medium mb-1">Location access is required</p>
-                <p>Please enable location permissions in your browser settings to track vessel position.</p>
+                <p>Please enable location permissions in your browser settings to track {userType === 'coastguard' ? 'your position' : 'vessel position'}.</p>
               </div>
             </div>
           </div>
@@ -132,7 +133,7 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
         <div className="pt-4 border-t">
           <div className="flex items-center text-xs text-gray-500">
             <Satellite className="h-3 w-3 mr-1" />
-            High-accuracy GPS tracking enabled for precise vessel monitoring
+            High-accuracy GPS tracking enabled for precise {userType === 'coastguard' ? 'command center' : 'vessel'} monitoring
           </div>
         </div>
       </div>
