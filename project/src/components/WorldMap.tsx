@@ -367,8 +367,13 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
             <div>
               🚢 = Vessel {userType === 'coastguard' ? '| 🛡️ = Coast Guard' : ''} | 🔴 = Prohibited Zone
             </div>
-            <div className="text-xs text-orange-600">
-              ⚠️ Dynamic zones move with tracked vessels in real-time
+            <div className="text-xs space-y-1">
+              <div className="text-orange-600">
+                ⚠️ Dynamic zones move with tracked vessels in real-time
+              </div>
+              <div className="text-red-600">
+                📍 Live user zones follow actual GPS location
+              </div>
             </div>
           </div>
         </div>
