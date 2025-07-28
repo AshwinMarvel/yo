@@ -5,135 +5,249 @@ import { BoatData } from '../App';
 import 'leaflet/dist/leaflet.css';
 
 // Fix for default markers in react-leaflet
-if (L.Icon.Default.prototype._getIconUrl) {
-  delete (L.Icon.Default.prototype as any)._getIconUrl;
-  L.Icon.Default.mergeOptions({
-    iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
-    iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-  });
-}
-
-interface MapComponentProps {
-  boats: BoatData[];
-  selectedBoat: BoatData | null;
-  onBoatSelect: (boat: BoatData) => void;
-  userType: 'fisherman' | 'coastguard';
-  liveTracking: boolean;
-}
-
-// Custom boat icon
-const boatIcon = new L.Icon({
-  iconUrl: 'data:image/svg+xml;base64,' + btoa(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#2563eb" width="24" height="24">
-      <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2Z"/>
-      <path d="M12 16L22 20L12 18L2 20L12 16Z"/>
-    </svg>
-  `),
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-  popupAnchor: [0, -12],
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
 
-// Component to handle map updates
-function MapUpdater({ boats, selectedBoat }: { boats: BoatData[], selectedBoat: BoatData | null }) {
+interface WorldMapProps {
+  boats: BoatData[];
+  userType: 'fisherman' | 'coastguard';
+  currentBoat?: BoatData | null;
+  liveTracking?: boolean;
+  onBoatSelect?: (boat: BoatData) => void;
+}
+
+// Custom boat icons
+const createBoatIcon = (status: BoatData['status'], isCurrentUser: boolean = false) => {
+  const color = status === 'safe' ? '#10B981' : status === 'warning' ? '#F59E0B' : '#EF4444';
+  const size = isCurrentUser ? 30 : 20;
+  
+  return L.divIcon({
+    html: `
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        background-color: ${color};
+        border: 3px solid white;
+        border-radius: 50%;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: ${size * 0.6}px;
+        color: white;
+        font-weight: bold;
+      ">
+        🚢
+      </div>
+    `,
+    className: 'custom-boat-icon',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+};
+
+// Prohibited zones
+const prohibitedZones = [
+  { 
+    name: 'Marine Protected Area', 
+    center: [37.7749, -122.4194] as [number, number], 
+    radius: 1000,
+    color: '#EF4444'
+  },
+  { 
+    name: 'Spawning Ground', 
+    center: [37.7849, -122.4094] as [number, number], 
+    radius: 800,
+    color: '#F59E0B'
+  },
+  { 
+    name: 'Restricted Fishing Zone', 
+    center: [37.7649, -122.4294] as [number, number], 
+    radius: 1200,
+    color: '#EF4444'
+  }
+];
+
+// Component to update map view when boats change
+const MapUpdater: React.FC<{ boats: BoatData[]; userType: string }> = ({ boats, userType }) => {
   const map = useMap();
 
   useEffect(() => {
-    if (selectedBoat) {
-      map.setView([selectedBoat.latitude, selectedBoat.longitude], 12);
-    } else if (boats.length > 0) {
-      const group = new L.FeatureGroup(
-        boats.map(boat => L.marker([boat.latitude, boat.longitude]))
-      );
-      map.fitBounds(group.getBounds().pad(0.1));
+    if (boats.length > 0) {
+      if (userType === 'fisherman' && boats.length === 1) {
+        // Center on the single boat for fisherman view
+        const boat = boats[0];
+        map.setView([boat.location.lat, boat.location.lng], 13);
+      } else if (userType === 'coastguard' && boats.length > 1) {
+        // Fit bounds to show all boats for coast guard view
+        const bounds = L.latLngBounds(boats.map(boat => [boat.location.lat, boat.location.lng]));
+        map.fitBounds(bounds, { padding: [20, 20] });
+      }
     }
-  }, [map, boats, selectedBoat]);
+  }, [boats, userType, map]);
 
   return null;
-}
+};
 
-export default function MapComponent({ boats, selectedBoat, onBoatSelect, userType, liveTracking }: MapComponentProps) {
+const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, liveTracking = false, onBoatSelect }) => {
   const mapRef = useRef<L.Map>(null);
 
-  const getBoatColor = (boat: BoatData) => {
-    if (boat.emergency) return '#ef4444'; // red
-    if (boat.status === 'distress') return '#f97316'; // orange
-    if (boat.status === 'safe') return '#22c55e'; // green
-    return '#3b82f6'; // blue
-  };
+  // Default center (San Francisco Bay area)
+  const defaultCenter: [number, number] = [37.7749, -122.4194];
+  const defaultZoom = 12;
 
   return (
-    <div className="h-full w-full">
-      <MapContainer
-        center={[36.8065, 10.1815]} // Tunisia coordinates
-        zoom={8}
-        className="h-full w-full"
-        ref={mapRef}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-        
-        <MapUpdater boats={boats} selectedBoat={selectedBoat} />
-        
-        {boats.map((boat) => (
-          <React.Fragment key={boat.id}>
-            <Marker
-              position={[boat.latitude, boat.longitude]}
-              icon={boatIcon}
-              eventHandlers={{
-                click: () => onBoatSelect(boat),
+    <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+      <div className={`bg-gradient-to-r p-4 text-white ${
+        userType === 'coastguard' ? 'from-red-600 to-red-700' : 'from-blue-600 to-blue-700'
+      }`}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-lg font-semibold">
+              {userType === 'coastguard' ? 'Fleet Tracking Map' : 'Live Position Map'}
+            </h3>
+            <p className="text-sm opacity-90">
+              {userType === 'coastguard' 
+                ? `Monitoring ${boats.length} active vessels` 
+                : 'Real-time GPS tracking with prohibited zones'
+              }
+            </p>
+          </div>
+          {userType === 'coastguard' && liveTracking && (
+            <div className="flex items-center text-green-300 bg-green-900/20 px-3 py-2 rounded-full backdrop-blur-sm">
+              <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+              Live Tracking
+            </div>
+          )}
+        </div>
+      </div>
+      
+      <div className="h-96 relative">
+        <MapContainer
+          center={defaultCenter}
+          zoom={defaultZoom}
+          style={{ height: '100%', width: '100%' }}
+          ref={mapRef}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          
+          <MapUpdater boats={boats} userType={userType} />
+          
+          {/* Prohibited Zones */}
+          {prohibitedZones.map((zone, index) => (
+            <Circle
+              key={index}
+              center={zone.center}
+              radius={zone.radius}
+              pathOptions={{
+                color: zone.color,
+                fillColor: zone.color,
+                fillOpacity: 0.2,
+                weight: 2,
+                dashArray: '5, 5'
               }}
             >
               <Popup>
-                <div className="p-2">
-                  <div className="font-bold text-lg mb-2">{boat.name}</div>
-                  <div className="space-y-1 text-sm">
-                    <div><strong>Captain:</strong> {boat.captain}</div>
-                    <div><strong>Status:</strong> 
-                      <span className={`ml-1 px-2 py-1 rounded text-xs font-medium ${
+                <div className="text-center">
+                  <h4 className="font-semibold text-red-800">{zone.name}</h4>
+                  <p className="text-sm text-red-600">Prohibited Fishing Zone</p>
+                  <p className="text-xs text-gray-600">Radius: {zone.radius}m</p>
+                </div>
+              </Popup>
+            </Circle>
+          ))}
+          
+          {/* Boat Markers */}
+          {boats.map((boat) => {
+            const isCurrentUser = currentBoat?.aisId === boat.aisId;
+            return (
+              <Marker
+                key={boat.aisId}
+                position={[boat.location.lat, boat.location.lng]}
+                icon={createBoatIcon(boat.status, isCurrentUser)}
+                eventHandlers={{
+                  click: () => onBoatSelect?.(boat)
+                }}
+              >
+                <Popup>
+                  <div className="min-w-48">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="font-semibold text-gray-900">{boat.boatId}</h4>
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                         boat.status === 'safe' ? 'bg-green-100 text-green-800' :
-                        boat.status === 'distress' ? 'bg-orange-100 text-orange-800' :
-                        'bg-gray-100 text-gray-800'
+                        boat.status === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
                       }`}>
-                        {boat.status}
+                        {boat.status.toUpperCase()}
                       </span>
                     </div>
-                    <div><strong>Speed:</strong> {boat.speed} knots</div>
-                    <div><strong>Heading:</strong> {boat.heading}°</div>
-                    <div><strong>Fuel:</strong> {boat.fuel}%</div>
-                    <div><strong>Last Update:</strong> {new Date(boat.lastUpdate).toLocaleTimeString()}</div>
-                    {liveTracking && userType === 'coastguard' && (
+                    
+                    <div className="space-y-1 text-sm text-gray-600">
+                      <div><strong>AIS ID:</strong> {boat.aisId}</div>
+                      {boat.fishermanName && (
+                        <div><strong>Captain:</strong> {boat.fishermanName}</div>
+                      )}
+                      {boat.contactInfo && userType === 'coastguard' && (
+                        <div><strong>Contact:</strong> {boat.contactInfo}</div>
+                      )}
+                      <div><strong>Speed:</strong> {boat.speed.toFixed(1)} kts</div>
+                      <div><strong>Heading:</strong> {boat.heading}°</div>
+                      <div><strong>Position:</strong></div>
+                      <div className="font-mono text-xs">
+                        {boat.location.lat.toFixed(6)}, {boat.location.lng.toFixed(6)}
+                      </div>
+                      <div><strong>Last Update:</strong> {new Date(boat.lastUpdate).toLocaleTimeString()}</div>
+                    </div>
+                    
+                    {isCurrentUser && (
+                      <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-800 font-medium">
+                        📍 Your Current Position
+                      </div>
+                    )}
+                    
+                    {userType === 'coastguard' && liveTracking && (
                       <div className="mt-2 p-2 bg-green-50 rounded text-xs text-green-800 font-medium">
                         🟢 Live GPS Tracking Active
                       </div>
                     )}
                   </div>
-                  {boat.emergency && (
-                    <div className="mt-2 p-2 bg-red-50 rounded text-xs text-red-800 font-bold">
-                      🚨 EMERGENCY ALERT
-                    </div>
-                  )}
-                </div>
-              </Popup>
-            </Marker>
-            
-            {/* Safety zone circle */}
-            <Circle
-              center={[boat.latitude, boat.longitude]}
-              radius={1000} // 1km radius
-              pathOptions={{
-                color: getBoatColor(boat),
-                fillColor: getBoatColor(boat),
-                fillOpacity: 0.1,
-                weight: 2,
-              }}
-            />
-          </React.Fragment>
-        ))}
-      </MapContainer>
+                </Popup>
+              </Marker>
+            );
+          })}
+        </MapContainer>
+      </div>
+      
+      <div className="p-4 bg-gray-50 border-t">
+        <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-green-500 rounded-full mr-2"></div>
+              <span>Safe</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
+              <span>Warning</span>
+            </div>
+            <div className="flex items-center">
+              <div className="w-3 h-3 bg-red-500 rounded-full mr-2"></div>
+              <span>Danger</span>
+            </div>
+          </div>
+          <div className="text-gray-500">
+            🚢 = Vessel | 🔴 = Prohibited Zone
+          </div>
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default WorldMap;
