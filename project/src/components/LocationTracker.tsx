@@ -261,6 +261,17 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
               🔄 Attempting to access device location...
             </div>
           )}
+
+          {/* Debug information */}
+          <div className="mt-3 p-2 bg-gray-100 rounded text-xs">
+            <div className="font-medium text-gray-700 mb-1">Debug Info:</div>
+            <div className="text-gray-600 space-y-1">
+              <div>Tracking: {isTracking ? 'ON' : 'OFF'}</div>
+              <div>User Type: {userType}</div>
+              <div>Browser Support: {typeof navigator !== 'undefined' && navigator.geolocation ? 'YES' : 'NO'}</div>
+              <div>HTTPS: {typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'YES' : 'NO'}</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
