@@ -96,20 +96,34 @@ const staticProhibitedZones = [
 ];
 
 // Function to create dynamic prohibited zones based on vessel locations
-const createDynamicProhibitedZones = (boats: BoatData[]) => {
+const createDynamicProhibitedZones = (boats: BoatData[], currentBoat?: BoatData | null) => {
   const dynamicZones = [];
 
-  // Create a dynamic restricted zone around the first fisherman (FISHER-002)
-  const trackedBoat = boats.find(boat => boat.boatId === 'FISHER-002');
-  if (trackedBoat) {
+  // Priority 1: Create zone around live fisherman user if they exist and have location
+  if (currentBoat && currentBoat.location) {
     dynamicZones.push({
-      name: 'Dynamic Restricted Fishing Zone',
-      center: [trackedBoat.location.lat, trackedBoat.location.lng] as [number, number],
-      radius: 1200,
-      color: '#EF4444',
+      name: 'Live Fisherman Restricted Zone',
+      center: [currentBoat.location.lat, currentBoat.location.lng] as [number, number],
+      radius: 1500,
+      color: '#DC2626',
       isDynamic: true,
-      trackedVessel: trackedBoat.boatId
+      trackedVessel: `${currentBoat.boatId} (Live User)`,
+      isLiveUser: true
     });
+  } else {
+    // Priority 2: Fallback to simulated boat (FISHER-002) if no live user
+    const trackedBoat = boats.find(boat => boat.boatId === 'FISHER-002');
+    if (trackedBoat) {
+      dynamicZones.push({
+        name: 'Dynamic Restricted Fishing Zone',
+        center: [trackedBoat.location.lat, trackedBoat.location.lng] as [number, number],
+        radius: 1200,
+        color: '#EF4444',
+        isDynamic: true,
+        trackedVessel: trackedBoat.boatId,
+        isLiveUser: false
+      });
+    }
   }
 
   return [...staticProhibitedZones, ...dynamicZones];
@@ -150,7 +164,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
   const defaultZoom = 12;
 
   // Create dynamic prohibited zones that follow vessel locations
-  const prohibitedZones = createDynamicProhibitedZones(boats);
+  const prohibitedZones = createDynamicProhibitedZones(boats, currentBoat);
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -203,14 +217,21 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
                     {(zone as any).isDynamic ? 'Dynamic Prohibited Zone' : 'Prohibited Fishing Zone'}
                   </p>
                   {(zone as any).isDynamic && (
-                    <p className="text-xs text-blue-600 font-medium">
-                      Following: {(zone as any).trackedVessel}
-                    </p>
+                    <>
+                      <p className="text-xs text-blue-600 font-medium">
+                        Following: {(zone as any).trackedVessel}
+                      </p>
+                      {(zone as any).isLiveUser && (
+                        <p className="text-xs text-green-600 font-bold">
+                          📍 Live GPS Tracking
+                        </p>
+                      )}
+                    </>
                   )}
                   <p className="text-xs text-gray-600">Radius: {zone.radius}m</p>
                   {(zone as any).isDynamic && (
                     <p className="text-xs text-orange-600 italic">
-                      ⚠️ Zone moves with vessel
+                      ⚠️ Zone moves with {(zone as any).isLiveUser ? 'live location' : 'vessel'}
                     </p>
                   )}
                 </div>
