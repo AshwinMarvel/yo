@@ -16,6 +16,7 @@ interface WorldMapProps {
   boats: BoatData[];
   userType: 'fisherman' | 'coastguard';
   currentBoat?: BoatData | null;
+  coastGuardLocation?: {lat: number, lng: number} | null;
   onBoatSelect?: (boat: BoatData) => void;
 }
 
@@ -23,7 +24,7 @@ interface WorldMapProps {
 const createBoatIcon = (status: BoatData['status'], isCurrentUser: boolean = false) => {
   const color = status === 'safe' ? '#10B981' : status === 'warning' ? '#F59E0B' : '#EF4444';
   const size = isCurrentUser ? 30 : 20;
-  
+
   return L.divIcon({
     html: `
       <div style="
@@ -44,6 +45,35 @@ const createBoatIcon = (status: BoatData['status'], isCurrentUser: boolean = fal
       </div>
     `,
     className: 'custom-boat-icon',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+};
+
+// Coast Guard icon
+const createCoastGuardIcon = () => {
+  const size = 25;
+
+  return L.divIcon({
+    html: `
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        background-color: #DC2626;
+        border: 3px solid white;
+        border-radius: 50%;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: ${size * 0.7}px;
+        color: white;
+        font-weight: bold;
+      ">
+        🛡️
+      </div>
+    `,
+    className: 'custom-coastguard-icon',
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   });
@@ -72,7 +102,7 @@ const prohibitedZones = [
 ];
 
 // Component to update map view when boats change
-const MapUpdater: React.FC<{ boats: BoatData[]; userType: string }> = ({ boats, userType }) => {
+const MapUpdater: React.FC<{ boats: BoatData[]; userType: string; coastGuardLocation?: {lat: number, lng: number} | null }> = ({ boats, userType, coastGuardLocation }) => {
   const map = useMap();
 
   useEffect(() => {
@@ -81,18 +111,24 @@ const MapUpdater: React.FC<{ boats: BoatData[]; userType: string }> = ({ boats, 
         // Center on the single boat for fisherman view
         const boat = boats[0];
         map.setView([boat.location.lat, boat.location.lng], 13);
-      } else if (userType === 'coastguard' && boats.length > 1) {
-        // Fit bounds to show all boats for coast guard view
-        const bounds = L.latLngBounds(boats.map(boat => [boat.location.lat, boat.location.lng]));
-        map.fitBounds(bounds, { padding: [20, 20] });
+      } else if (userType === 'coastguard') {
+        // For coast guard, include their location in bounds if available
+        const allPoints = boats.map(boat => [boat.location.lat, boat.location.lng]);
+        if (coastGuardLocation) {
+          allPoints.push([coastGuardLocation.lat, coastGuardLocation.lng]);
+        }
+        if (allPoints.length > 0) {
+          const bounds = L.latLngBounds(allPoints);
+          map.fitBounds(bounds, { padding: [20, 20] });
+        }
       }
     }
-  }, [boats, userType, map]);
+  }, [boats, userType, coastGuardLocation, map]);
 
   return null;
 };
 
-const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, onBoatSelect }) => {
+const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coastGuardLocation, onBoatSelect }) => {
   const mapRef = useRef<L.Map>(null);
 
   // Default center (San Francisco Bay area)
@@ -127,7 +163,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, onBoa
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           
-          <MapUpdater boats={boats} userType={userType} />
+          <MapUpdater boats={boats} userType={userType} coastGuardLocation={coastGuardLocation} />
           
           {/* Prohibited Zones */}
           {prohibitedZones.map((zone, index) => (
@@ -153,6 +189,38 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, onBoa
             </Circle>
           ))}
           
+          {/* Coast Guard Location Marker */}
+          {coastGuardLocation && userType === 'coastguard' && (
+            <Marker
+              position={[coastGuardLocation.lat, coastGuardLocation.lng]}
+              icon={createCoastGuardIcon()}
+            >
+              <Popup>
+                <div className="min-w-48">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-gray-900">Coast Guard Station</h4>
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      COMMAND
+                    </span>
+                  </div>
+
+                  <div className="space-y-1 text-sm text-gray-600">
+                    <div><strong>Status:</strong> Active</div>
+                    <div><strong>Position:</strong></div>
+                    <div className="font-mono text-xs">
+                      {coastGuardLocation.lat.toFixed(6)}, {coastGuardLocation.lng.toFixed(6)}
+                    </div>
+                    <div><strong>Last Update:</strong> {new Date().toLocaleTimeString()}</div>
+                  </div>
+
+                  <div className="mt-2 p-2 bg-red-50 rounded text-xs text-red-800 font-medium">
+                    🛡️ Your Command Center Position
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+
           {/* Boat Markers */}
           {boats.map((boat) => {
             const isCurrentUser = currentBoat?.aisId === boat.aisId;
@@ -177,7 +245,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, onBoa
                         {boat.status.toUpperCase()}
                       </span>
                     </div>
-                    
+
                     <div className="space-y-1 text-sm text-gray-600">
                       <div><strong>AIS ID:</strong> {boat.aisId}</div>
                       {boat.fishermanName && (
@@ -194,7 +262,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, onBoa
                       </div>
                       <div><strong>Last Update:</strong> {new Date(boat.lastUpdate).toLocaleTimeString()}</div>
                     </div>
-                    
+
                     {isCurrentUser && (
                       <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-800 font-medium">
                         📍 Your Current Position
@@ -225,7 +293,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, onBoa
             </div>
           </div>
           <div className="text-gray-500">
-            🚢 = Vessel | 🔴 = Prohibited Zone
+            🚢 = Vessel {userType === 'coastguard' ? '| 🛡️ = Coast Guard' : ''} | 🔴 = Prohibited Zone
           </div>
         </div>
       </div>
