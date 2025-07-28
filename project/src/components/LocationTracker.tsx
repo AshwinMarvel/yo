@@ -8,15 +8,21 @@ interface LocationTrackerProps {
 }
 
 const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isTracking, userType = 'fisherman' }) => {
-  const [locationStatus, setLocationStatus] = useState<'requesting' | 'granted' | 'denied' | 'unavailable'>('requesting');
+  const [locationStatus, setLocationStatus] = useState<'requesting' | 'granted' | 'denied' | 'unavailable' | 'timeout' | 'unsupported'>('requesting');
   const [accuracy, setAccuracy] = useState<number>(0);
   const [lastUpdate, setLastUpdate] = useState<number>(0);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
-    if (!isTracking) return;
+    if (!isTracking) {
+      setLocationStatus('requesting');
+      setErrorMessage('');
+      return;
+    }
 
     if (!navigator.geolocation) {
-      setLocationStatus('unavailable');
+      setLocationStatus('unsupported');
+      setErrorMessage('Geolocation API not supported by this browser');
       return;
     }
 
@@ -25,16 +31,46 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
         setLocationStatus('granted');
         setAccuracy(position.coords.accuracy);
         setLastUpdate(Date.now());
+        setErrorMessage('');
         onLocationUpdate(position.coords.latitude, position.coords.longitude);
       },
       (error) => {
-        console.error('Geolocation error:', error);
-        setLocationStatus('denied');
+        console.error('Geolocation error details:', {
+          code: error.code,
+          message: error.message,
+          PERMISSION_DENIED: error.PERMISSION_DENIED,
+          POSITION_UNAVAILABLE: error.POSITION_UNAVAILABLE,
+          TIMEOUT: error.TIMEOUT
+        });
+        
+        let status: typeof locationStatus = 'denied';
+        let message = '';
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            status = 'denied';
+            message = 'Location access denied by user';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            status = 'unavailable';
+            message = 'Location information unavailable';
+            break;
+          case error.TIMEOUT:
+            status = 'timeout';
+            message = 'Location request timed out';
+            break;
+          default:
+            status = 'denied';
+            message = `Unknown error: ${error.message}`;
+        }
+        
+        setLocationStatus(status);
+        setErrorMessage(message);
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 5000
+        timeout: 15000,
+        maximumAge: 10000
       }
     );
 
@@ -49,6 +85,8 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
         return <CheckCircle className="h-5 w-5 text-green-600" />;
       case 'denied':
       case 'unavailable':
+      case 'timeout':
+      case 'unsupported':
         return <AlertCircle className="h-5 w-5 text-red-600" />;
       default:
         return <Satellite className="h-5 w-5 text-yellow-600 animate-pulse" />;
@@ -63,9 +101,18 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
         return 'Location access denied';
       case 'unavailable':
         return 'GPS unavailable';
+      case 'timeout':
+        return 'Location request timed out';
+      case 'unsupported':
+        return 'GPS not supported';
       default:
         return 'Requesting location access...';
     }
+  };
+
+  const retryLocation = () => {
+    setLocationStatus('requesting');
+    setErrorMessage('');
   };
 
   return (
@@ -83,12 +130,24 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
           <span className="text-sm font-medium text-gray-700">Status:</span>
           <span className={`text-sm font-medium ${
             locationStatus === 'granted' ? 'text-green-600' :
-            locationStatus === 'denied' || locationStatus === 'unavailable' ? 'text-red-600' :
+            ['denied', 'unavailable', 'timeout', 'unsupported'].includes(locationStatus) ? 'text-red-600' :
             'text-yellow-600'
           }`}>
             {getStatusMessage()}
           </span>
         </div>
+        
+        {errorMessage && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start">
+              <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 mr-2 flex-shrink-0" />
+              <div className="text-sm text-red-700">
+                <p className="font-medium mb-1">Error Details:</p>
+                <p>{errorMessage}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {locationStatus === 'granted' && (
           <>
@@ -113,6 +172,35 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
               <div className="text-sm text-red-700">
                 <p className="font-medium mb-1">Location access is required</p>
                 <p>Please enable location permissions in your browser settings to track {userType === 'coastguard' ? 'your position' : 'vessel position'}.</p>
+                <div className="mt-2 text-xs">
+                  <p><strong>Chrome/Edge:</strong> Click the location icon in the address bar</p>
+                  <p><strong>Firefox:</strong> Click the shield icon and allow location</p>
+                  <p><strong>Safari:</strong> Go to Safari Settings, then Websites, then Location</p>
+                </div>
+                <button 
+                  onClick={retryLocation}
+                  className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs rounded transition-colors"
+                >
+                  Retry Location Access
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {locationStatus === 'timeout' && (
+          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-start">
+              <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+              <div className="text-sm text-yellow-700">
+                <p className="font-medium mb-1">Location request timed out</p>
+                <p>GPS signal may be weak. Try moving to an area with better reception.</p>
+                <button 
+                  onClick={retryLocation}
+                  className="mt-2 px-3 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-xs rounded transition-colors"
+                >
+                  Retry Location Access
+                </button>
               </div>
             </div>
           </div>
@@ -125,6 +213,24 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
               <div className="text-sm text-yellow-700">
                 <p className="font-medium mb-1">GPS unavailable</p>
                 <p>Your device or browser doesn't support location tracking.</p>
+                <button 
+                  onClick={retryLocation}
+                  className="mt-2 px-3 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-xs rounded transition-colors"
+                >
+                  Retry Location Access
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {locationStatus === 'unsupported' && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-start">
+              <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 mr-2 flex-shrink-0" />
+              <div className="text-sm text-red-700">
+                <p className="font-medium mb-1">Geolocation not supported</p>
+                <p>Your browser doesn't support geolocation features.</p>
               </div>
             </div>
           </div>
@@ -135,6 +241,11 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
             <Satellite className="h-3 w-3 mr-1" />
             High-accuracy GPS tracking enabled for precise {userType === 'coastguard' ? 'command center' : 'vessel'} monitoring
           </div>
+          {locationStatus === 'requesting' && (
+            <div className="mt-2 text-xs text-blue-600">
+              🔄 Attempting to access device location...
+            </div>
+          )}
         </div>
       </div>
     </div>
