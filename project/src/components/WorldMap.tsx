@@ -161,9 +161,9 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
           {userType === 'coastguard' ? 'Fleet Tracking Map' : 'Live Position Map'}
         </h3>
         <p className="text-sm opacity-90">
-          {userType === 'coastguard' 
-            ? `Monitoring ${boats.length} active vessels` 
-            : 'Real-time GPS tracking with prohibited zones'
+          {userType === 'coastguard'
+            ? `Monitoring ${boats.length} active vessels with dynamic zones`
+            : 'Real-time GPS tracking with dynamic prohibited zones'
           }
         </p>
       </div>
@@ -290,6 +290,16 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
                         {boat.location.lat.toFixed(6)}, {boat.location.lng.toFixed(6)}
                       </div>
                       <div><strong>Last Update:</strong> {new Date(boat.lastUpdate).toLocaleTimeString()}</div>
+                      {boat.boatId === 'FISHER-002' && (
+                        <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-xs">
+                          <div className="text-orange-800 font-medium flex items-center">
+                            ⚠️ <span className="ml-1">Dynamic Zone Active</span>
+                          </div>
+                          <div className="text-orange-600 text-xs mt-1">
+                            Restricted fishing zone follows this vessel
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {isCurrentUser && (
@@ -321,8 +331,13 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
               <span>Danger</span>
             </div>
           </div>
-          <div className="text-gray-500">
-            🚢 = Vessel {userType === 'coastguard' ? '| 🛡️ = Coast Guard' : ''} | 🔴 = Prohibited Zone
+          <div className="text-gray-500 space-y-1">
+            <div>
+              🚢 = Vessel {userType === 'coastguard' ? '| 🛡️ = Coast Guard' : ''} | 🔴 = Prohibited Zone
+            </div>
+            <div className="text-xs text-orange-600">
+              ⚠️ Dynamic zones move with tracked vessels in real-time
+            </div>
           </div>
         </div>
       </div>
