@@ -51,6 +51,8 @@ function App() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [coastGuardMessages, setCoastGuardMessages] = useState<CoastGuardMessage[]>([]);
   const [isTracking, setIsTracking] = useState(false);
+  const [coastGuardLocation, setCoastGuardLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isCoastGuardTracking, setIsCoastGuardTracking] = useState(false);
 
   // Simulate other boats for Coast Guard view
   useEffect(() => {
@@ -144,12 +146,16 @@ function App() {
         lastUpdate: Date.now()
       };
       setBoatData(updatedBoat);
-      
+
       // Update in all boats list
-      setAllBoats(prev => prev.map(boat => 
+      setAllBoats(prev => prev.map(boat =>
         boat.aisId === boatData.aisId ? updatedBoat : boat
       ));
     }
+  };
+
+  const updateCoastGuardLocation = (lat: number, lng: number) => {
+    setCoastGuardLocation({ lat, lng });
   };
 
   const addAlert = (alert: Omit<Alert, 'id' | 'timestamp'>) => {
