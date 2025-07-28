@@ -14,6 +14,8 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
   const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
+    console.log('LocationTracker useEffect triggered - isTracking:', isTracking, 'userType:', userType);
+
     if (!isTracking) {
       setLocationStatus('requesting');
       setErrorMessage('');
@@ -21,13 +23,22 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
     }
 
     if (!navigator.geolocation) {
+      console.error('Geolocation API not available');
       setLocationStatus('unsupported');
       setErrorMessage('Geolocation API not supported by this browser');
       return;
     }
 
+    console.log('Starting geolocation watch...');
+
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
+        console.log('Geolocation success:', {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: position.timestamp
+        });
         setLocationStatus('granted');
         setAccuracy(position.coords.accuracy);
         setLastUpdate(Date.now());
@@ -78,6 +89,7 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
     );
 
     return () => {
+      console.log('Clearing geolocation watch');
       navigator.geolocation.clearWatch(watchId);
     };
   }, [isTracking, onLocationUpdate]);
