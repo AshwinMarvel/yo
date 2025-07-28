@@ -15,14 +15,4 @@ const CoastGuardDashboard: React.FC<CoastGuardDashboardProps> = ({
   liveTracking,
   onToggleLiveTracking
 }) => {
-                  <div className="flex items-center">
-                    <Clock className="h-3 w-3 mr-2" />
-                    {liveTracking ? (
-                      <span className="text-green-600 font-medium">
-                        {formatTime(boat.lastUpdate)} (Live)
-                      </span>
-                    ) : (
-                      formatTime(boat.lastUpdate)
-                    )}
-                  </div>
-                </div>
+}
