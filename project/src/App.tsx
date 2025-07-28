@@ -343,16 +343,30 @@ function App() {
                   <Users className="h-4 w-4 mr-1" />
                   {allBoats.length} Vessels Tracked
                 </div>
-                <button
-                  onClick={() => {
-                    setUserType(null);
-                    setIsRegistered(false);
-                    setAllBoats([]);
-                  }}
-                  className="text-red-200 hover:text-white transition-colors"
-                >
-                  Logout
-                </button>
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setIsCoastGuardTracking(!isCoastGuardTracking)}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                      isCoastGuardTracking
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                    }`}
+                  >
+                    {isCoastGuardTracking ? '📍 Location On' : '📍 Enable Location'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setUserType(null);
+                      setIsRegistered(false);
+                      setAllBoats([]);
+                      setIsCoastGuardTracking(false);
+                      setCoastGuardLocation(null);
+                    }}
+                    className="text-red-200 hover:text-white transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -361,12 +375,13 @@ function App() {
         <main className="container mx-auto px-4 py-6">
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <div className="xl:col-span-2 space-y-6">
-              <WorldMap 
-                boats={allBoats} 
+              <WorldMap
+                boats={allBoats}
                 userType="coastguard"
+                coastGuardLocation={coastGuardLocation}
                 onBoatSelect={(boat) => console.log('Selected boat:', boat)}
               />
-              <CoastGuardDashboard 
+              <CoastGuardDashboard
                 boats={allBoats}
                 onSendMessage={sendCoastGuardMessage}
                 onUpdateBoatStatus={updateBoatStatusByCoastGuard}
@@ -374,6 +389,11 @@ function App() {
               />
             </div>
             <div className="space-y-6">
+              <LocationTracker
+                onLocationUpdate={updateCoastGuardLocation}
+                isTracking={isCoastGuardTracking}
+                userType="coastguard"
+              />
               <AlertSystem alerts={alerts} />
             </div>
           </div>
