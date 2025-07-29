@@ -293,7 +293,7 @@ function App() {
               <div className="flex items-center space-x-4">
                 <div className="flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
                   <Users className="h-4 w-4 mr-1" />
-                  {allBoats.length} Vessels Tracked
+                  {allBoats.length} {allBoats.length === 1 ? 'Vessel' : 'Vessels'} {allBoats.length === 0 ? 'Registered' : 'Tracked'}
                 </div>
                 <div className="flex items-center space-x-4">
                   <button
