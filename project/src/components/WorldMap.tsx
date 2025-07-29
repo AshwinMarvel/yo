@@ -110,9 +110,9 @@ const createDynamicProhibitedZones = (boats: BoatData[], currentBoat?: BoatData 
       trackedVessel: `${currentBoat.boatId} (Live User)`,
       isLiveUser: true
     });
-  } else {
-    // Priority 2: Fallback to simulated boat (FISHER-002) if no live user
-    const trackedBoat = boats.find(boat => boat.boatId === 'FISHER-002');
+  } else if (boats.length > 0) {
+    // Priority 2: Fallback to first registered vessel if no live user
+    const trackedBoat = boats[0]; // Track the first registered fisherman
     if (trackedBoat) {
       dynamicZones.push({
         name: 'Dynamic Restricted Fishing Zone',
