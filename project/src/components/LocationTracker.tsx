@@ -347,6 +347,12 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
                   >
                     Request Permission
                   </button>
+                  <button
+                    onClick={() => setShowManualInput(true)}
+                    className="px-3 py-1 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs rounded transition-colors"
+                  >
+                    Enter Location Manually
+                  </button>
                 </div>
               </div>
             </div>
