@@ -92,6 +92,8 @@ function App() {
     setAllBoats(prev => {
       const updated = [...prev, newBoat];
       localStorage.setItem('registeredVessels', JSON.stringify(updated));
+      console.log('Fisherman registered:', newBoat);
+      console.log('Total vessels now:', updated.length);
       return updated;
     });
   };
