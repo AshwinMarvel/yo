@@ -107,10 +107,14 @@ function App() {
       };
       setBoatData(updatedBoat);
 
-      // Update in all boats list
-      setAllBoats(prev => prev.map(boat =>
-        boat.aisId === boatData.aisId ? updatedBoat : boat
-      ));
+      // Update in all boats list and persist to localStorage
+      setAllBoats(prev => {
+        const updated = prev.map(boat =>
+          boat.aisId === boatData.aisId ? updatedBoat : boat
+        );
+        localStorage.setItem('registeredVessels', JSON.stringify(updated));
+        return updated;
+      });
     }
   };
 
@@ -438,7 +442,11 @@ function App() {
                   setIsRegistered(false);
                   // Remove current fisherman's boat from tracking when they logout
                   if (boatData) {
-                    setAllBoats(prev => prev.filter(boat => boat.aisId !== boatData.aisId));
+                    setAllBoats(prev => {
+                      const updated = prev.filter(boat => boat.aisId !== boatData.aisId);
+                      localStorage.setItem('registeredVessels', JSON.stringify(updated));
+                      return updated;
+                    });
                   }
                   setBoatData(null);
                   setIsTracking(false);
