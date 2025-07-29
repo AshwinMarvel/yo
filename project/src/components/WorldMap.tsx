@@ -133,10 +133,12 @@ const createDynamicProhibitedZones = (boats: BoatData[], currentBoat?: BoatData 
 const MapUpdater: React.FC<{ boats: BoatData[]; userType: string; coastGuardLocation?: {lat: number, lng: number} | null }> = ({ boats, userType, coastGuardLocation }) => {
   const map = useMap();
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [lastCoastGuardUpdate, setLastCoastGuardUpdate] = useState<number>(0);
+  const [lastBoatsUpdate, setLastBoatsUpdate] = useState<number>(0);
 
   useEffect(() => {
     // Only update map bounds once on initial load or when switching user types
-    if (!hasInitialized || userType) {
+    if (!hasInitialized) {
       if (boats.length > 0) {
         if (userType === 'fisherman' && boats.length === 1) {
           // Center on the single boat for fisherman view
@@ -159,15 +161,32 @@ const MapUpdater: React.FC<{ boats: BoatData[]; userType: string; coastGuardLoca
       }
       setHasInitialized(true);
     }
-  }, [boats.length, userType, map, hasInitialized]);
+  }, [boats.length, userType, map, hasInitialized, coastGuardLocation]);
 
-  // Separate effect for coast guard location updates (less disruptive)
+  // Throttled effect for coast guard location updates to prevent glitching
   useEffect(() => {
-    if (hasInitialized && userType === 'coastguard' && coastGuardLocation && boats.length === 0) {
-      // Only center on coast guard if no boats are present
+    const now = Date.now();
+    // Only update coast guard location every 5 seconds to prevent map jumping
+    if (hasInitialized && userType === 'coastguard' && coastGuardLocation &&
+        (now - lastCoastGuardUpdate) > 5000 && boats.length === 0) {
+      console.log('Updating coast guard position on map');
       map.setView([coastGuardLocation.lat, coastGuardLocation.lng], 13);
+      setLastCoastGuardUpdate(now);
     }
-  }, [coastGuardLocation, userType, boats.length, map, hasInitialized]);
+  }, [coastGuardLocation, userType, boats.length, map, hasInitialized, lastCoastGuardUpdate]);
+
+  // Throttled effect for boat updates
+  useEffect(() => {
+    const now = Date.now();
+    // Only update boat positions every 3 seconds to prevent excessive re-rendering
+    if (hasInitialized && boats.length > 0 && (now - lastBoatsUpdate) > 3000) {
+      if (userType === 'fisherman' && boats.length === 1) {
+        const boat = boats[0];
+        map.setView([boat.location.lat, boat.location.lng], map.getZoom());
+      }
+      setLastBoatsUpdate(now);
+    }
+  }, [boats, userType, map, hasInitialized, lastBoatsUpdate]);
 
   return null;
 };
@@ -176,10 +195,14 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
   const mapRef = useRef<L.Map>(null);
   const [mapKey, setMapKey] = useState(0);
 
-  // Force map re-render when switching between user types
+  // Force map re-render when switching between user types (but not for location updates)
   useEffect(() => {
     setMapKey(prev => prev + 1);
   }, [userType]);
+
+  // Prevent map re-render on every location update by using refs for location data
+  const coastGuardLocationRef = useRef(coastGuardLocation);
+  coastGuardLocationRef.current = coastGuardLocation;
 
   // Default center (Chennai, Tamil Nadu coast)
   const defaultCenter: [number, number] = [13.0827, 80.2707];
