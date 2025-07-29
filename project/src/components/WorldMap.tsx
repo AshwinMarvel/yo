@@ -186,8 +186,15 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
         <MapContainer
           center={defaultCenter}
           zoom={defaultZoom}
-          style={{ height: '100%', width: '100%' }}
+          style={{ height: '100%', width: '100%', zIndex: 1 }}
           ref={mapRef}
+          scrollWheelZoom={true}
+          doubleClickZoom={true}
+          dragging={true}
+          zoomControl={true}
+          touchZoom={true}
+          boxZoom={true}
+          keyboard={true}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
