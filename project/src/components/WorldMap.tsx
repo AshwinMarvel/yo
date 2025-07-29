@@ -198,7 +198,9 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
         </h3>
         <p className="text-sm opacity-90">
           {userType === 'coastguard'
-            ? `Monitoring ${boats.length} active vessels with dynamic zones`
+            ? boats.length === 0
+              ? 'Waiting for fishermen to register their vessels'
+              : `Monitoring ${boats.length} registered vessel${boats.length === 1 ? '' : 's'} with dynamic zones`
             : 'Real-time GPS tracking with dynamic prohibited zones'
           }
         </p>
