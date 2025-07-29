@@ -1,3 +1,43 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Leaflet map fixes for better interaction */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+}
+
+.leaflet-control-zoom {
+  z-index: 1000;
+}
+
+.leaflet-control {
+  z-index: 1000;
+}
+
+/* Ensure map interactions work properly */
+.leaflet-container a {
+  color: inherit;
+}
+
+.leaflet-container a.leaflet-active {
+  outline: none;
+}
+
+.leaflet-zoom-box {
+  border: 2px dotted #38f;
+  background: rgba(255,255,255,0.5);
+}
+
+/* Custom boat icons */
+.custom-boat-icon {
+  background: none !important;
+  border: none !important;
+}
+
+.custom-coastguard-icon {
+  background: none !important;
+  border: none !important;
+}
