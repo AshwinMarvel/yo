@@ -54,66 +54,12 @@ function App() {
   const [coastGuardLocation, setCoastGuardLocation] = useState<{lat: number, lng: number} | null>(null);
   const [isCoastGuardTracking, setIsCoastGuardTracking] = useState(false);
 
-  // Simulate other boats for Coast Guard view and auto-enable location tracking
+  // Auto-enable location tracking for coast guard (no simulated vessels)
   useEffect(() => {
     if (userType === 'coastguard') {
       // Auto-enable location tracking for coast guard
       setIsCoastGuardTracking(true);
-      const simulatedBoats: BoatData[] = [
-        {
-          aisId: '987654321',
-          boatId: 'FISHER-002',
-          location: { lat: 13.0827, lng: 80.2707, timestamp: Date.now() },
-          status: 'safe',
-          speed: 8.5,
-          heading: 180,
-          lastUpdate: Date.now(),
-          fishermanName: 'Captain Raman',
-          contactInfo: '+91-98765-43210'
-        },
-        {
-          aisId: '456789123',
-          boatId: 'VESSEL-003',
-          location: { lat: 13.0527, lng: 80.3007, timestamp: Date.now() },
-          status: 'warning',
-          speed: 12.3,
-          heading: 90,
-          lastUpdate: Date.now(),
-          fishermanName: 'Captain Murugan',
-          contactInfo: '+91-98765-43211'
-        },
-        {
-          aisId: '789123456',
-          boatId: 'BOAT-004',
-          location: { lat: 13.1127, lng: 80.2507, timestamp: Date.now() },
-          status: 'safe',
-          speed: 6.7,
-          heading: 270,
-          lastUpdate: Date.now(),
-          fishermanName: 'Captain Vijay',
-          contactInfo: '+91-98765-43212'
-        }
-      ];
-
-      setAllBoats(simulatedBoats);
-
-      // Simulate boat movement
-      const moveInterval = setInterval(() => {
-        setAllBoats(prev => prev.map(boat => ({
-          ...boat,
-          location: {
-            ...boat.location,
-            lat: boat.location.lat + (Math.random() - 0.5) * 0.001,
-            lng: boat.location.lng + (Math.random() - 0.5) * 0.001,
-            timestamp: Date.now()
-          },
-          speed: Math.max(0, boat.speed + (Math.random() - 0.5) * 2),
-          heading: (boat.heading + (Math.random() - 0.5) * 20) % 360,
-          lastUpdate: Date.now()
-        })));
-      }, 5000);
-
-      return () => clearInterval(moveInterval);
+      // Note: allBoats will only contain vessels registered by actual fishermen
     } else {
       // Disable coast guard tracking when not in coast guard mode
       setIsCoastGuardTracking(false);
