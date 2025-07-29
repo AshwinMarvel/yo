@@ -12,6 +12,8 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
   const [accuracy, setAccuracy] = useState<number>(0);
   const [lastUpdate, setLastUpdate] = useState<number>(0);
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const [retryAttempt, setRetryAttempt] = useState<number>(0);
+  const [useHighAccuracy, setUseHighAccuracy] = useState<boolean>(true);
 
   useEffect(() => {
     console.log('LocationTracker useEffect triggered - isTracking:', isTracking, 'userType:', userType);
@@ -31,24 +33,44 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
 
     console.log('Starting geolocation watch...');
 
+    // Progressive timeout and accuracy settings based on retry attempts
+    const getLocationOptions = () => {
+      const baseTimeout = 20000; // Start with 20 seconds
+      const maxAge = retryAttempt > 2 ? 60000 : 10000; // Accept older positions after multiple retries
+
+      return {
+        enableHighAccuracy: useHighAccuracy && retryAttempt < 3,
+        timeout: Math.min(baseTimeout + (retryAttempt * 10000), 45000), // Progressive timeout up to 45s
+        maximumAge: maxAge
+      };
+    };
+
+    const options = getLocationOptions();
+    console.log('Starting geolocation with options:', options, 'Retry attempt:', retryAttempt);
+
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         console.log('Geolocation success:', {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
           accuracy: position.coords.accuracy,
-          timestamp: position.timestamp
+          timestamp: position.timestamp,
+          retryAttempt: retryAttempt,
+          highAccuracy: useHighAccuracy
         });
         setLocationStatus('granted');
         setAccuracy(position.coords.accuracy);
         setLastUpdate(Date.now());
         setErrorMessage('');
+        setRetryAttempt(0); // Reset retry count on success
         onLocationUpdate(position.coords.latitude, position.coords.longitude);
       },
       (error) => {
         console.error('Geolocation error details:');
         console.error('Error code:', error.code);
         console.error('Error message:', error.message);
+        console.error('Retry attempt:', retryAttempt);
+        console.error('High accuracy mode:', useHighAccuracy);
         console.error('Error constants - PERMISSION_DENIED:', error.PERMISSION_DENIED, 'POSITION_UNAVAILABLE:', error.POSITION_UNAVAILABLE, 'TIMEOUT:', error.TIMEOUT);
 
         // Also log a readable interpretation
@@ -56,10 +78,10 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
                          error.code === error.POSITION_UNAVAILABLE ? 'POSITION_UNAVAILABLE' :
                          error.code === error.TIMEOUT ? 'TIMEOUT' : 'UNKNOWN';
         console.error('Error type:', errorType);
-        
+
         let status: typeof locationStatus = 'denied';
         let message = '';
-        
+
         switch (error.code) {
           case error.PERMISSION_DENIED:
             status = 'denied';
@@ -71,21 +93,17 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
             break;
           case error.TIMEOUT:
             status = 'timeout';
-            message = 'Location request timed out';
+            message = `Location request timed out (attempt ${retryAttempt + 1}). ${useHighAccuracy ? 'Try low accuracy mode.' : 'Consider manual location entry.'}`;
             break;
           default:
             status = 'denied';
             message = `Unknown error: ${error.message}`;
         }
-        
+
         setLocationStatus(status);
         setErrorMessage(message);
       },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 10000
-      }
+      options
     );
 
     return () => {
@@ -128,6 +146,14 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
   const retryLocation = () => {
     setLocationStatus('requesting');
     setErrorMessage('');
+    setRetryAttempt(prev => prev + 1);
+  };
+
+  const tryLowAccuracyMode = () => {
+    setUseHighAccuracy(false);
+    setLocationStatus('requesting');
+    setErrorMessage('');
+    setRetryAttempt(prev => prev + 1);
   };
 
   return (
@@ -209,13 +235,29 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
               <AlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
               <div className="text-sm text-yellow-700">
                 <p className="font-medium mb-1">Location request timed out</p>
-                <p>GPS signal may be weak. Try moving to an area with better reception.</p>
-                <button 
-                  onClick={retryLocation}
-                  className="mt-2 px-3 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-xs rounded transition-colors"
-                >
-                  Retry Location Access
-                </button>
+                <p>GPS signal may be weak. Try moving to an area with better reception or try different accuracy modes.</p>
+                <div className="mt-2 space-x-2">
+                  <button
+                    onClick={retryLocation}
+                    className="px-3 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-xs rounded transition-colors"
+                  >
+                    Retry (Attempt {retryAttempt + 1})
+                  </button>
+                  {useHighAccuracy && (
+                    <button
+                      onClick={tryLowAccuracyMode}
+                      className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs rounded transition-colors"
+                    >
+                      Try Low Accuracy Mode
+                    </button>
+                  )}
+                </div>
+                <div className="mt-2 text-xs">
+                  <p><strong>Tips:</strong></p>
+                  <p>• Move outdoors for better GPS signal</p>
+                  <p>• Check if location services are enabled</p>
+                  <p>• Try refreshing the page</p>
+                </div>
               </div>
             </div>
           </div>
@@ -270,6 +312,8 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
               <div>User Type: {userType}</div>
               <div>Browser Support: {typeof navigator !== 'undefined' && navigator.geolocation ? 'YES' : 'NO'}</div>
               <div>HTTPS: {typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'YES' : 'NO'}</div>
+              <div>Retry Count: {retryAttempt}</div>
+              <div>High Accuracy: {useHighAccuracy ? 'ON' : 'OFF'}</div>
             </div>
           </div>
         </div>
