@@ -169,7 +169,13 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
         setLocationStatus(status);
         setErrorMessage(message);
       },
-      options
+      {
+        ...options,
+        // More aggressive options for better success rate
+        enableHighAccuracy: useHighAccuracy && retryAttempt < 2,
+        timeout: Math.max(options.timeout, 15000), // Minimum 15s timeout
+        maximumAge: retryAttempt > 1 ? 600000 : options.maximumAge // Accept 10min old position after retries
+      }
     );
 
     return () => {
@@ -215,6 +221,7 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
     setLocationStatus('requesting');
     setErrorMessage('');
     setRetryAttempt(prev => prev + 1);
+    setRejectedCount(0);
   };
 
   const tryLowAccuracyMode = () => {
@@ -222,6 +229,25 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
     setLocationStatus('requesting');
     setErrorMessage('');
     setRetryAttempt(prev => prev + 1);
+    setRejectedCount(0);
+  };
+
+  const requestPermissionExplicitly = async () => {
+    try {
+      const permission = await navigator.permissions.query({name: 'geolocation'});
+      console.log('Geolocation permission status:', permission.state);
+
+      if (permission.state === 'prompt') {
+        // Try to trigger permission dialog
+        navigator.geolocation.getCurrentPosition(
+          () => console.log('Permission granted'),
+          (error) => console.log('Permission denied:', error),
+          { timeout: 1000 }
+        );
+      }
+    } catch (e) {
+      console.log('Permission API not supported, using fallback');
+    }
   };
 
   return (
@@ -299,17 +325,26 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
               <div className="text-sm text-red-700">
                 <p className="font-medium mb-1">Location access is required</p>
                 <p>Please enable location permissions in your browser settings to track {userType === 'coastguard' ? 'your position' : 'vessel position'}.</p>
-                <div className="mt-2 text-xs">
-                  <p><strong>Chrome/Edge:</strong> Click the location icon in the address bar</p>
+                <div className="mt-2 text-xs space-y-1">
+                  <p><strong>Chrome/Edge:</strong> Click the 🔒 or location icon in the address bar</p>
                   <p><strong>Firefox:</strong> Click the shield icon and allow location</p>
-                  <p><strong>Safari:</strong> Go to Safari Settings, then Websites, then Location</p>
+                  <p><strong>Safari:</strong> Go to Safari Settings → Websites → Location</p>
+                  <p><strong>Mobile:</strong> Check your browser app permissions in device settings</p>
                 </div>
-                <button 
-                  onClick={retryLocation}
-                  className="mt-2 px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs rounded transition-colors"
-                >
-                  Retry Location Access
-                </button>
+                <div className="mt-2 space-x-2">
+                  <button
+                    onClick={retryLocation}
+                    className="px-3 py-1 bg-red-100 hover:bg-red-200 text-red-800 text-xs rounded transition-colors"
+                  >
+                    Retry Location Access
+                  </button>
+                  <button
+                    onClick={requestPermissionExplicitly}
+                    className="px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-800 text-xs rounded transition-colors"
+                  >
+                    Request Permission
+                  </button>
+                </div>
               </div>
             </div>
           </div>
