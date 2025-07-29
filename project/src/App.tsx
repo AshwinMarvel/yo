@@ -310,7 +310,7 @@ function App() {
                     onClick={() => {
                       setUserType(null);
                       setIsRegistered(false);
-                      setAllBoats([]);
+                      // Keep registered vessels in allBoats when coast guard logs out
                       setIsCoastGuardTracking(false);
                       setCoastGuardLocation(null);
                     }}
@@ -428,6 +428,10 @@ function App() {
                 onClick={() => {
                   setUserType(null);
                   setIsRegistered(false);
+                  // Remove current fisherman's boat from tracking when they logout
+                  if (boatData) {
+                    setAllBoats(prev => prev.filter(boat => boat.aisId !== boatData.aisId));
+                  }
                   setBoatData(null);
                   setIsTracking(false);
                 }}
