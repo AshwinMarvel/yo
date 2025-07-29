@@ -356,7 +356,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
                           </div>
                         </div>
                       )}
-                      {!isCurrentUser && boat.boatId === 'FISHER-002' && !currentBoat && (
+                      {!isCurrentUser && boats.indexOf(boat) === 0 && !currentBoat && boats.length > 0 && (
                         <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-xs">
                           <div className="text-orange-800 font-medium flex items-center">
                             ⚠️ <span className="ml-1">Dynamic Zone Active</span>
