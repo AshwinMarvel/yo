@@ -47,7 +47,11 @@ function App() {
   const [userType, setUserType] = useState<'fisherman' | 'coastguard' | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [boatData, setBoatData] = useState<BoatData | null>(null);
-  const [allBoats, setAllBoats] = useState<BoatData[]>([]);
+  // Initialize allBoats from localStorage to persist across sessions
+  const [allBoats, setAllBoats] = useState<BoatData[]>(() => {
+    const saved = localStorage.getItem('registeredVessels');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [coastGuardMessages, setCoastGuardMessages] = useState<CoastGuardMessage[]>([]);
   const [isTracking, setIsTracking] = useState(false);
@@ -79,13 +83,17 @@ function App() {
       fishermanName,
       contactInfo
     };
-    
+
     setBoatData(newBoat);
     setIsRegistered(true);
     setIsTracking(true);
-    
+
     // Add to all boats list for Coast Guard tracking
-    setAllBoats(prev => [...prev, newBoat]);
+    setAllBoats(prev => {
+      const updated = [...prev, newBoat];
+      localStorage.setItem('registeredVessels', JSON.stringify(updated));
+      return updated;
+    });
   };
 
 
