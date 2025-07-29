@@ -132,32 +132,54 @@ const createDynamicProhibitedZones = (boats: BoatData[], currentBoat?: BoatData 
 // Component to update map view when boats change
 const MapUpdater: React.FC<{ boats: BoatData[]; userType: string; coastGuardLocation?: {lat: number, lng: number} | null }> = ({ boats, userType, coastGuardLocation }) => {
   const map = useMap();
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   useEffect(() => {
-    if (boats.length > 0) {
-      if (userType === 'fisherman' && boats.length === 1) {
-        // Center on the single boat for fisherman view
-        const boat = boats[0];
-        map.setView([boat.location.lat, boat.location.lng], 13);
-      } else if (userType === 'coastguard') {
-        // For coast guard, include their location in bounds if available
-        const allPoints = boats.map(boat => [boat.location.lat, boat.location.lng]);
-        if (coastGuardLocation) {
-          allPoints.push([coastGuardLocation.lat, coastGuardLocation.lng]);
+    // Only update map bounds once on initial load or when switching user types
+    if (!hasInitialized || userType) {
+      if (boats.length > 0) {
+        if (userType === 'fisherman' && boats.length === 1) {
+          // Center on the single boat for fisherman view
+          const boat = boats[0];
+          map.setView([boat.location.lat, boat.location.lng], 13);
+        } else if (userType === 'coastguard') {
+          // For coast guard, include their location in bounds if available
+          const allPoints = boats.map(boat => [boat.location.lat, boat.location.lng]);
+          if (coastGuardLocation) {
+            allPoints.push([coastGuardLocation.lat, coastGuardLocation.lng]);
+          }
+          if (allPoints.length > 0) {
+            const bounds = L.latLngBounds(allPoints);
+            map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+          }
         }
-        if (allPoints.length > 0) {
-          const bounds = L.latLngBounds(allPoints);
-          map.fitBounds(bounds, { padding: [20, 20] });
-        }
+      } else {
+        // Default view for Chennai coast
+        map.setView([13.0827, 80.2707], 12);
       }
+      setHasInitialized(true);
     }
-  }, [boats, userType, coastGuardLocation, map]);
+  }, [boats.length, userType, map, hasInitialized]);
+
+  // Separate effect for coast guard location updates (less disruptive)
+  useEffect(() => {
+    if (hasInitialized && userType === 'coastguard' && coastGuardLocation && boats.length === 0) {
+      // Only center on coast guard if no boats are present
+      map.setView([coastGuardLocation.lat, coastGuardLocation.lng], 13);
+    }
+  }, [coastGuardLocation, userType, boats.length, map, hasInitialized]);
 
   return null;
 };
 
 const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coastGuardLocation, onBoatSelect }) => {
   const mapRef = useRef<L.Map>(null);
+  const [mapKey, setMapKey] = useState(0);
+
+  // Force map re-render when switching between user types
+  useEffect(() => {
+    setMapKey(prev => prev + 1);
+  }, [userType]);
 
   // Default center (Chennai, Tamil Nadu coast)
   const defaultCenter: [number, number] = [13.0827, 80.2707];
