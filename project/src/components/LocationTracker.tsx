@@ -15,6 +15,9 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
   const [retryAttempt, setRetryAttempt] = useState<number>(0);
   const [useHighAccuracy, setUseHighAccuracy] = useState<boolean>(true);
   const [rejectedCount, setRejectedCount] = useState<number>(0);
+  const [showManualInput, setShowManualInput] = useState<boolean>(false);
+  const [manualLat, setManualLat] = useState<string>('');
+  const [manualLng, setManualLng] = useState<string>('');
 
   // Define acceptable accuracy thresholds
   const ACCURACY_THRESHOLD = {
