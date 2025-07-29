@@ -14,6 +14,14 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [retryAttempt, setRetryAttempt] = useState<number>(0);
   const [useHighAccuracy, setUseHighAccuracy] = useState<boolean>(true);
+  const [rejectedCount, setRejectedCount] = useState<number>(0);
+
+  // Define acceptable accuracy thresholds
+  const ACCURACY_THRESHOLD = {
+    HIGH: 50,      // 50m for high accuracy mode
+    MEDIUM: 500,   // 500m for medium accuracy
+    LOW: 5000      // 5km as absolute maximum
+  };
 
   useEffect(() => {
     console.log('LocationTracker useEffect triggered - isTracking:', isTracking, 'userType:', userType);
@@ -50,20 +58,50 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
-        console.log('Geolocation success:', {
+        const currentAccuracy = position.coords.accuracy;
+
+        // Determine accuracy threshold based on mode and attempts
+        let threshold = ACCURACY_THRESHOLD.HIGH;
+        if (!useHighAccuracy || retryAttempt > 2) {
+          threshold = ACCURACY_THRESHOLD.MEDIUM;
+        }
+        if (retryAttempt > 4) {
+          threshold = ACCURACY_THRESHOLD.LOW;
+        }
+
+        console.log('Geolocation result:', {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
-          accuracy: position.coords.accuracy,
+          accuracy: currentAccuracy,
+          threshold: threshold,
+          accepted: currentAccuracy <= threshold,
           timestamp: position.timestamp,
           retryAttempt: retryAttempt,
           highAccuracy: useHighAccuracy
         });
-        setLocationStatus('granted');
-        setAccuracy(position.coords.accuracy);
-        setLastUpdate(Date.now());
-        setErrorMessage('');
-        setRetryAttempt(0); // Reset retry count on success
-        onLocationUpdate(position.coords.latitude, position.coords.longitude);
+
+        // Only accept positions with reasonable accuracy
+        if (currentAccuracy <= threshold) {
+          setLocationStatus('granted');
+          setAccuracy(currentAccuracy);
+          setLastUpdate(Date.now());
+          setErrorMessage('');
+          setRetryAttempt(0); // Reset retry count on success
+          setRejectedCount(0); // Reset rejected count on success
+          onLocationUpdate(position.coords.latitude, position.coords.longitude);
+        } else {
+          // Reject poor accuracy readings
+          console.log(`Location rejected due to poor accuracy: ${currentAccuracy}m > ${threshold}m`);
+          setRejectedCount(prev => prev + 1);
+          setErrorMessage(`GPS accuracy too low (${currentAccuracy.toFixed(0)}m). Waiting for better signal...`);
+
+          // If we've rejected too many readings, lower the accuracy requirement
+          if (rejectedCount > 3 && useHighAccuracy) {
+            console.log('Too many rejections, switching to low accuracy mode');
+            setUseHighAccuracy(false);
+            setRejectedCount(0);
+          }
+        }
       },
       (error) => {
         console.error('Geolocation error details:');
