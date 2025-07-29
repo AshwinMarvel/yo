@@ -232,7 +232,16 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
           <>
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
               <span className="text-sm font-medium text-gray-700">Accuracy:</span>
-              <span className="text-sm font-medium text-gray-900">±{accuracy.toFixed(0)}m</span>
+              <span className={`text-sm font-medium ${
+                accuracy <= 50 ? 'text-green-600' :
+                accuracy <= 500 ? 'text-yellow-600' :
+                'text-red-600'
+              }`}>
+                ±{accuracy.toFixed(0)}m
+                {accuracy <= 50 && ' 🎯'}
+                {accuracy > 50 && accuracy <= 500 && ' ⚠️'}
+                {accuracy > 500 && ' ❌'}
+              </span>
             </div>
 
             <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
@@ -241,6 +250,15 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
                 {lastUpdate ? new Date(lastUpdate).toLocaleTimeString() : 'Never'}
               </span>
             </div>
+
+            {rejectedCount > 0 && (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="text-sm text-yellow-700">
+                  <p className="font-medium">📡 Improving GPS Signal</p>
+                  <p className="text-xs mt-1">{rejectedCount} poor readings rejected. Waiting for better accuracy...</p>
+                </div>
+              </div>
+            )}
           </>
         )}
 
@@ -352,6 +370,8 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
               <div>HTTPS: {typeof window !== 'undefined' && window.location.protocol === 'https:' ? 'YES' : 'NO'}</div>
               <div>Retry Count: {retryAttempt}</div>
               <div>High Accuracy: {useHighAccuracy ? 'ON' : 'OFF'}</div>
+              <div>Rejected Readings: {rejectedCount}</div>
+              <div>Accuracy Threshold: {useHighAccuracy ? '50m' : retryAttempt > 4 ? '5000m' : '500m'}</div>
             </div>
           </div>
         </div>
