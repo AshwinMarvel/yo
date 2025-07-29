@@ -57,10 +57,21 @@ const CoastGuardDashboard: React.FC<CoastGuardDashboardProps> = ({
       {/* Vessel Overview */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="bg-gradient-to-r from-red-600 to-red-700 p-4 text-white">
-          <h3 className="text-lg font-semibold flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            Active Vessels ({boats.length})
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold flex items-center">
+              <Users className="h-5 w-5 mr-2" />
+              Active Vessels ({boats.length})
+            </h3>
+            <button
+              onClick={() => {
+                localStorage.removeItem('registeredVessels');
+                window.location.reload();
+              }}
+              className="text-xs bg-red-500 hover:bg-red-600 px-2 py-1 rounded transition-colors"
+            >
+              Clear All Vessels (Debug)
+            </button>
+          </div>
         </div>
         
         <div className="p-6">
