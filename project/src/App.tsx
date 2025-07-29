@@ -47,69 +47,37 @@ function App() {
   const [userType, setUserType] = useState<'fisherman' | 'coastguard' | null>(null);
   const [isRegistered, setIsRegistered] = useState(false);
   const [boatData, setBoatData] = useState<BoatData | null>(null);
-  const [allBoats, setAllBoats] = useState<BoatData[]>([]);
+  // Initialize allBoats from localStorage to persist across sessions
+  const [allBoats, setAllBoats] = useState<BoatData[]>(() => {
+    const saved = localStorage.getItem('registeredVessels');
+    return saved ? JSON.parse(saved) : [];
+  });
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [coastGuardMessages, setCoastGuardMessages] = useState<CoastGuardMessage[]>([]);
   const [isTracking, setIsTracking] = useState(false);
+  const [coastGuardLocation, setCoastGuardLocation] = useState<{lat: number, lng: number} | null>(null);
+  const [isCoastGuardTracking, setIsCoastGuardTracking] = useState(false);
 
-  // Simulate other boats for Coast Guard view
+  // Debug effect to track allBoats changes
+  useEffect(() => {
+    console.log('=== allBoats Debug ===');
+    console.log('allBoats state changed:', allBoats);
+    console.log('Total vessels:', allBoats.length);
+    console.log('User type:', userType);
+    console.log('localStorage vessels:', localStorage.getItem('registeredVessels'));
+    console.log('=====================');
+  }, [allBoats, userType]);
+
+  // Auto-enable location tracking for coast guard (no simulated vessels)
   useEffect(() => {
     if (userType === 'coastguard') {
-      const simulatedBoats: BoatData[] = [
-        {
-          aisId: '987654321',
-          boatId: 'FISHER-002',
-          location: { lat: 37.7849, lng: -122.4194, timestamp: Date.now() },
-          status: 'safe',
-          speed: 8.5,
-          heading: 180,
-          lastUpdate: Date.now(),
-          fishermanName: 'Captain Rodriguez',
-          contactInfo: '+1-555-0102'
-        },
-        {
-          aisId: '456789123',
-          boatId: 'VESSEL-003',
-          location: { lat: 37.7649, lng: -122.4294, timestamp: Date.now() },
-          status: 'warning',
-          speed: 12.3,
-          heading: 90,
-          lastUpdate: Date.now(),
-          fishermanName: 'Captain Chen',
-          contactInfo: '+1-555-0103'
-        },
-        {
-          aisId: '789123456',
-          boatId: 'BOAT-004',
-          location: { lat: 37.7949, lng: -122.4094, timestamp: Date.now() },
-          status: 'safe',
-          speed: 6.7,
-          heading: 270,
-          lastUpdate: Date.now(),
-          fishermanName: 'Captain Johnson',
-          contactInfo: '+1-555-0104'
-        }
-      ];
-
-      setAllBoats(simulatedBoats);
-
-      // Simulate boat movement
-      const moveInterval = setInterval(() => {
-        setAllBoats(prev => prev.map(boat => ({
-          ...boat,
-          location: {
-            ...boat.location,
-            lat: boat.location.lat + (Math.random() - 0.5) * 0.001,
-            lng: boat.location.lng + (Math.random() - 0.5) * 0.001,
-            timestamp: Date.now()
-          },
-          speed: Math.max(0, boat.speed + (Math.random() - 0.5) * 2),
-          heading: (boat.heading + (Math.random() - 0.5) * 20) % 360,
-          lastUpdate: Date.now()
-        })));
-      }, 5000);
-
-      return () => clearInterval(moveInterval);
+      // Auto-enable location tracking for coast guard
+      setIsCoastGuardTracking(true);
+      // Note: allBoats will only contain vessels registered by actual fishermen
+    } else {
+      // Disable coast guard tracking when not in coast guard mode
+      setIsCoastGuardTracking(false);
+      setCoastGuardLocation(null);
     }
   }, [userType]);
 
@@ -117,7 +85,7 @@ function App() {
     const newBoat: BoatData = {
       aisId,
       boatId,
-      location: { lat: 37.7749, lng: -122.4194, timestamp: Date.now() },
+      location: { lat: 13.0827, lng: 80.2707, timestamp: Date.now() },
       status: 'safe',
       speed: 0,
       heading: 0,
@@ -125,13 +93,19 @@ function App() {
       fishermanName,
       contactInfo
     };
-    
+
     setBoatData(newBoat);
     setIsRegistered(true);
     setIsTracking(true);
-    
+
     // Add to all boats list for Coast Guard tracking
-    setAllBoats(prev => [...prev, newBoat]);
+    setAllBoats(prev => {
+      const updated = [...prev, newBoat];
+      localStorage.setItem('registeredVessels', JSON.stringify(updated));
+      console.log('Fisherman registered:', newBoat);
+      console.log('Total vessels now:', updated.length);
+      return updated;
+    });
   };
 
 
@@ -144,12 +118,20 @@ function App() {
         lastUpdate: Date.now()
       };
       setBoatData(updatedBoat);
-      
-      // Update in all boats list
-      setAllBoats(prev => prev.map(boat => 
-        boat.aisId === boatData.aisId ? updatedBoat : boat
-      ));
+
+      // Update in all boats list and persist to localStorage
+      setAllBoats(prev => {
+        const updated = prev.map(boat =>
+          boat.aisId === boatData.aisId ? updatedBoat : boat
+        );
+        localStorage.setItem('registeredVessels', JSON.stringify(updated));
+        return updated;
+      });
     }
+  };
+
+  const updateCoastGuardLocation = (lat: number, lng: number) => {
+    setCoastGuardLocation({ lat, lng });
   };
 
   const addAlert = (alert: Omit<Alert, 'id' | 'timestamp'>) => {
@@ -335,18 +317,32 @@ function App() {
               <div className="flex items-center space-x-4">
                 <div className="flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
                   <Users className="h-4 w-4 mr-1" />
-                  {allBoats.length} Vessels Tracked
+                  {allBoats.length} {allBoats.length === 1 ? 'Vessel' : 'Vessels'} {allBoats.length === 0 ? 'Registered' : 'Tracked'}
                 </div>
-                <button
-                  onClick={() => {
-                    setUserType(null);
-                    setIsRegistered(false);
-                    setAllBoats([]);
-                  }}
-                  className="text-red-200 hover:text-white transition-colors"
-                >
-                  Logout
-                </button>
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => setIsCoastGuardTracking(!isCoastGuardTracking)}
+                    className={`px-3 py-1 rounded-full text-sm font-medium transition-colors ${
+                      isCoastGuardTracking
+                        ? 'bg-green-100 text-green-800'
+                        : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                    }`}
+                  >
+                    {isCoastGuardTracking ? '📍 Location On' : '📍 Enable Location'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setUserType(null);
+                      setIsRegistered(false);
+                      // Keep registered vessels in allBoats when coast guard logs out
+                      setIsCoastGuardTracking(false);
+                      setCoastGuardLocation(null);
+                    }}
+                    className="text-red-200 hover:text-white transition-colors"
+                  >
+                    Logout
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -355,12 +351,13 @@ function App() {
         <main className="container mx-auto px-4 py-6">
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
             <div className="xl:col-span-2 space-y-6">
-              <WorldMap 
-                boats={allBoats} 
+              <WorldMap
+                boats={allBoats}
                 userType="coastguard"
+                coastGuardLocation={coastGuardLocation}
                 onBoatSelect={(boat) => console.log('Selected boat:', boat)}
               />
-              <CoastGuardDashboard 
+              <CoastGuardDashboard
                 boats={allBoats}
                 onSendMessage={sendCoastGuardMessage}
                 onUpdateBoatStatus={updateBoatStatusByCoastGuard}
@@ -368,6 +365,11 @@ function App() {
               />
             </div>
             <div className="space-y-6">
+              <LocationTracker
+                onLocationUpdate={updateCoastGuardLocation}
+                isTracking={isCoastGuardTracking}
+                userType="coastguard"
+              />
               <AlertSystem alerts={alerts} />
             </div>
           </div>
@@ -450,6 +452,14 @@ function App() {
                 onClick={() => {
                   setUserType(null);
                   setIsRegistered(false);
+                  // Remove current fisherman's boat from tracking when they logout
+                  if (boatData) {
+                    setAllBoats(prev => {
+                      const updated = prev.filter(boat => boat.aisId !== boatData.aisId);
+                      localStorage.setItem('registeredVessels', JSON.stringify(updated));
+                      return updated;
+                    });
+                  }
                   setBoatData(null);
                   setIsTracking(false);
                 }}

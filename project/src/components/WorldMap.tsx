@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Circle, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { BoatData } from '../App';
@@ -16,6 +16,7 @@ interface WorldMapProps {
   boats: BoatData[];
   userType: 'fisherman' | 'coastguard';
   currentBoat?: BoatData | null;
+  coastGuardLocation?: {lat: number, lng: number} | null;
   onBoatSelect?: (boat: BoatData) => void;
 }
 
@@ -23,7 +24,7 @@ interface WorldMapProps {
 const createBoatIcon = (status: BoatData['status'], isCurrentUser: boolean = false) => {
   const color = status === 'safe' ? '#10B981' : status === 'warning' ? '#F59E0B' : '#EF4444';
   const size = isCurrentUser ? 30 : 20;
-  
+
   return L.divIcon({
     html: `
       <div style="
@@ -49,55 +50,166 @@ const createBoatIcon = (status: BoatData['status'], isCurrentUser: boolean = fal
   });
 };
 
-// Prohibited zones
-const prohibitedZones = [
-  { 
-    name: 'Marine Protected Area', 
-    center: [37.7749, -122.4194] as [number, number], 
+// Coast Guard icon
+const createCoastGuardIcon = () => {
+  const size = 25;
+
+  return L.divIcon({
+    html: `
+      <div style="
+        width: ${size}px;
+        height: ${size}px;
+        background-color: #DC2626;
+        border: 3px solid white;
+        border-radius: 50%;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: ${size * 0.7}px;
+        color: white;
+        font-weight: bold;
+      ">
+        🛡️
+      </div>
+    `,
+    className: 'custom-coastguard-icon',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+};
+
+// Static prohibited zones around Chennai coast
+const staticProhibitedZones = [
+  {
+    name: 'Marine Protected Area',
+    center: [13.0627, 80.2907] as [number, number],
     radius: 1000,
     color: '#EF4444'
   },
-  { 
-    name: 'Spawning Ground', 
-    center: [37.7849, -122.4094] as [number, number], 
+  {
+    name: 'Coral Reef Spawning Ground',
+    center: [13.1027, 80.2607] as [number, number],
     radius: 800,
     color: '#F59E0B'
-  },
-  { 
-    name: 'Restricted Fishing Zone', 
-    center: [37.7649, -122.4294] as [number, number], 
-    radius: 1200,
-    color: '#EF4444'
   }
 ];
 
+// Function to create dynamic prohibited zones based on vessel locations
+const createDynamicProhibitedZones = (boats: BoatData[], currentBoat?: BoatData | null) => {
+  const dynamicZones = [];
+
+  // Priority 1: Create zone around live fisherman user if they exist and have location
+  if (currentBoat && currentBoat.location) {
+    dynamicZones.push({
+      name: 'Live Fisherman Restricted Zone',
+      center: [currentBoat.location.lat, currentBoat.location.lng] as [number, number],
+      radius: 1500,
+      color: '#DC2626',
+      isDynamic: true,
+      trackedVessel: `${currentBoat.boatId} (Live User)`,
+      isLiveUser: true
+    });
+  } else if (boats.length > 0) {
+    // Priority 2: Fallback to first registered vessel if no live user
+    const trackedBoat = boats[0]; // Track the first registered fisherman
+    if (trackedBoat) {
+      dynamicZones.push({
+        name: 'Dynamic Restricted Fishing Zone',
+        center: [trackedBoat.location.lat, trackedBoat.location.lng] as [number, number],
+        radius: 1200,
+        color: '#EF4444',
+        isDynamic: true,
+        trackedVessel: trackedBoat.boatId,
+        isLiveUser: false
+      });
+    }
+  }
+
+  return [...staticProhibitedZones, ...dynamicZones];
+};
+
 // Component to update map view when boats change
-const MapUpdater: React.FC<{ boats: BoatData[]; userType: string }> = ({ boats, userType }) => {
+const MapUpdater: React.FC<{ boats: BoatData[]; userType: string; coastGuardLocation?: {lat: number, lng: number} | null }> = ({ boats, userType, coastGuardLocation }) => {
   const map = useMap();
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [lastCoastGuardUpdate, setLastCoastGuardUpdate] = useState<number>(0);
+  const [lastBoatsUpdate, setLastBoatsUpdate] = useState<number>(0);
 
   useEffect(() => {
-    if (boats.length > 0) {
-      if (userType === 'fisherman' && boats.length === 1) {
-        // Center on the single boat for fisherman view
-        const boat = boats[0];
-        map.setView([boat.location.lat, boat.location.lng], 13);
-      } else if (userType === 'coastguard' && boats.length > 1) {
-        // Fit bounds to show all boats for coast guard view
-        const bounds = L.latLngBounds(boats.map(boat => [boat.location.lat, boat.location.lng]));
-        map.fitBounds(bounds, { padding: [20, 20] });
+    // Only update map bounds once on initial load or when switching user types
+    if (!hasInitialized) {
+      if (boats.length > 0) {
+        if (userType === 'fisherman' && boats.length === 1) {
+          // Center on the single boat for fisherman view
+          const boat = boats[0];
+          map.setView([boat.location.lat, boat.location.lng], 13);
+        } else if (userType === 'coastguard') {
+          // For coast guard, include their location in bounds if available
+          const allPoints = boats.map(boat => [boat.location.lat, boat.location.lng]);
+          if (coastGuardLocation) {
+            allPoints.push([coastGuardLocation.lat, coastGuardLocation.lng]);
+          }
+          if (allPoints.length > 0) {
+            const bounds = L.latLngBounds(allPoints);
+            map.fitBounds(bounds, { padding: [30, 30], maxZoom: 14 });
+          }
+        }
+      } else {
+        // Default view for Chennai coast
+        map.setView([13.0827, 80.2707], 12);
       }
+      setHasInitialized(true);
     }
-  }, [boats, userType, map]);
+  }, [boats.length, userType, map, hasInitialized, coastGuardLocation]);
+
+  // Throttled effect for coast guard location updates to prevent glitching
+  useEffect(() => {
+    const now = Date.now();
+    // Only update coast guard location every 5 seconds to prevent map jumping
+    if (hasInitialized && userType === 'coastguard' && coastGuardLocation &&
+        (now - lastCoastGuardUpdate) > 5000 && boats.length === 0) {
+      console.log('Updating coast guard position on map');
+      map.setView([coastGuardLocation.lat, coastGuardLocation.lng], 13);
+      setLastCoastGuardUpdate(now);
+    }
+  }, [coastGuardLocation, userType, boats.length, map, hasInitialized, lastCoastGuardUpdate]);
+
+  // Throttled effect for boat updates
+  useEffect(() => {
+    const now = Date.now();
+    // Only update boat positions every 3 seconds to prevent excessive re-rendering
+    if (hasInitialized && boats.length > 0 && (now - lastBoatsUpdate) > 3000) {
+      if (userType === 'fisherman' && boats.length === 1) {
+        const boat = boats[0];
+        map.setView([boat.location.lat, boat.location.lng], map.getZoom());
+      }
+      setLastBoatsUpdate(now);
+    }
+  }, [boats, userType, map, hasInitialized, lastBoatsUpdate]);
 
   return null;
 };
 
-const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, onBoatSelect }) => {
+const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coastGuardLocation, onBoatSelect }) => {
   const mapRef = useRef<L.Map>(null);
+  const [mapKey, setMapKey] = useState(0);
 
-  // Default center (San Francisco Bay area)
-  const defaultCenter: [number, number] = [37.7749, -122.4194];
+  // Force map re-render when switching between user types (but not for location updates)
+  useEffect(() => {
+    setMapKey(prev => prev + 1);
+  }, [userType]);
+
+  // Prevent map re-render on every location update by using refs for location data
+  const coastGuardLocationRef = useRef(coastGuardLocation);
+  coastGuardLocationRef.current = coastGuardLocation;
+
+  // Default center (Chennai, Tamil Nadu coast)
+  const defaultCenter: [number, number] = [13.0827, 80.2707];
   const defaultZoom = 12;
+
+  // Create dynamic prohibited zones that follow vessel locations
+  const prohibitedZones = createDynamicProhibitedZones(boats, currentBoat);
 
   return (
     <div className="bg-white rounded-xl shadow-lg overflow-hidden">
@@ -108,26 +220,40 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, onBoa
           {userType === 'coastguard' ? 'Fleet Tracking Map' : 'Live Position Map'}
         </h3>
         <p className="text-sm opacity-90">
-          {userType === 'coastguard' 
-            ? `Monitoring ${boats.length} active vessels` 
-            : 'Real-time GPS tracking with prohibited zones'
+          {userType === 'coastguard'
+            ? boats.length === 0
+              ? 'Waiting for fishermen to register their vessels'
+              : `Monitoring ${boats.length} registered vessel${boats.length === 1 ? '' : 's'} with dynamic zones`
+            : 'Real-time GPS tracking with dynamic prohibited zones'
           }
         </p>
       </div>
       
       <div className="h-96 relative">
         <MapContainer
+          key={mapKey}
           center={defaultCenter}
           zoom={defaultZoom}
-          style={{ height: '100%', width: '100%' }}
+          style={{ height: '100%', width: '100%', zIndex: 1 }}
           ref={mapRef}
+          scrollWheelZoom={true}
+          doubleClickZoom={true}
+          dragging={true}
+          zoomControl={true}
+          touchZoom={true}
+          boxZoom={true}
+          keyboard={true}
+          attributionControl={true}
+          zoomAnimation={true}
+          fadeAnimation={true}
+          markerZoomAnimation={true}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           
-          <MapUpdater boats={boats} userType={userType} />
+          <MapUpdater boats={boats} userType={userType} coastGuardLocation={coastGuardLocation} />
           
           {/* Prohibited Zones */}
           {prohibitedZones.map((zone, index) => (
@@ -146,13 +272,64 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, onBoa
               <Popup>
                 <div className="text-center">
                   <h4 className="font-semibold text-red-800">{zone.name}</h4>
-                  <p className="text-sm text-red-600">Prohibited Fishing Zone</p>
+                  <p className="text-sm text-red-600">
+                    {(zone as any).isDynamic ? 'Dynamic Prohibited Zone' : 'Prohibited Fishing Zone'}
+                  </p>
+                  {(zone as any).isDynamic && (
+                    <>
+                      <p className="text-xs text-blue-600 font-medium">
+                        Following: {(zone as any).trackedVessel}
+                      </p>
+                      {(zone as any).isLiveUser && (
+                        <p className="text-xs text-green-600 font-bold">
+                          📍 Live GPS Tracking
+                        </p>
+                      )}
+                    </>
+                  )}
                   <p className="text-xs text-gray-600">Radius: {zone.radius}m</p>
+                  {(zone as any).isDynamic && (
+                    <p className="text-xs text-orange-600 italic">
+                      ⚠️ Zone moves with {(zone as any).isLiveUser ? 'live location' : 'vessel'}
+                    </p>
+                  )}
                 </div>
               </Popup>
             </Circle>
           ))}
           
+          {/* Coast Guard Location Marker */}
+          {coastGuardLocation && userType === 'coastguard' && (
+            <Marker
+              position={[coastGuardLocation.lat, coastGuardLocation.lng]}
+              icon={createCoastGuardIcon()}
+            >
+              <Popup>
+                <div className="min-w-48">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-semibold text-gray-900">Coast Guard Station</h4>
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                      COMMAND
+                    </span>
+                  </div>
+
+                  <div className="space-y-1 text-sm text-gray-600">
+                    <div><strong>Status:</strong> Active</div>
+                    <div><strong>Position:</strong></div>
+                    <div className="font-mono text-xs">
+                      {coastGuardLocation.lat.toFixed(6)}, {coastGuardLocation.lng.toFixed(6)}
+                    </div>
+                    <div><strong>Last Update:</strong> {new Date().toLocaleTimeString()}</div>
+                  </div>
+
+                  <div className="mt-2 p-2 bg-red-50 rounded text-xs text-red-800 font-medium">
+                    🛡️ Your Command Center Position
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+
           {/* Boat Markers */}
           {boats.map((boat) => {
             const isCurrentUser = currentBoat?.aisId === boat.aisId;
@@ -177,7 +354,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, onBoa
                         {boat.status.toUpperCase()}
                       </span>
                     </div>
-                    
+
                     <div className="space-y-1 text-sm text-gray-600">
                       <div><strong>AIS ID:</strong> {boat.aisId}</div>
                       {boat.fishermanName && (
@@ -193,8 +370,29 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, onBoa
                         {boat.location.lat.toFixed(6)}, {boat.location.lng.toFixed(6)}
                       </div>
                       <div><strong>Last Update:</strong> {new Date(boat.lastUpdate).toLocaleTimeString()}</div>
+                      {/* Show dynamic zone info for tracked vessels */}
+                      {isCurrentUser && currentBoat && (
+                        <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-xs">
+                          <div className="text-red-800 font-medium flex items-center">
+                            📍 <span className="ml-1">Live Dynamic Zone Active</span>
+                          </div>
+                          <div className="text-red-600 text-xs mt-1">
+                            1.5km restricted zone follows your live GPS location
+                          </div>
+                        </div>
+                      )}
+                      {!isCurrentUser && boats.indexOf(boat) === 0 && !currentBoat && boats.length > 0 && (
+                        <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded text-xs">
+                          <div className="text-orange-800 font-medium flex items-center">
+                            ⚠️ <span className="ml-1">Dynamic Zone Active</span>
+                          </div>
+                          <div className="text-orange-600 text-xs mt-1">
+                            Restricted fishing zone follows this vessel
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    
+
                     {isCurrentUser && (
                       <div className="mt-2 p-2 bg-blue-50 rounded text-xs text-blue-800 font-medium">
                         📍 Your Current Position
@@ -224,8 +422,18 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, onBoa
               <span>Danger</span>
             </div>
           </div>
-          <div className="text-gray-500">
-            🚢 = Vessel | 🔴 = Prohibited Zone
+          <div className="text-gray-500 space-y-1">
+            <div>
+              🚢 = Vessel {userType === 'coastguard' ? '| 🛡️ = Coast Guard' : ''} | 🔴 = Prohibited Zone
+            </div>
+            <div className="text-xs space-y-1">
+              <div className="text-orange-600">
+                ⚠️ Dynamic zones move with tracked vessels in real-time
+              </div>
+              <div className="text-red-600">
+                📍 Live user zones follow actual GPS location
+              </div>
+            </div>
           </div>
         </div>
       </div>

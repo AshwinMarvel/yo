@@ -9,12 +9,16 @@ interface CoastGuardDashboardProps {
   messages: CoastGuardMessage[];
 }
 
-const CoastGuardDashboard: React.FC<CoastGuardDashboardProps> = ({ 
-  boats, 
-  onSendMessage, 
+const CoastGuardDashboard: React.FC<CoastGuardDashboardProps> = ({
+  boats,
+  onSendMessage,
   onUpdateBoatStatus,
-  messages 
+  messages
 }) => {
+
+  // Debug boats prop
+  console.log('CoastGuardDashboard received boats:', boats);
+  console.log('CoastGuardDashboard boats length:', boats.length);
   const [selectedBoat, setSelectedBoat] = useState<string>('');
   const [messageText, setMessageText] = useState('');
   const [messagePriority, setMessagePriority] = useState<'low' | 'medium' | 'high'>('medium');
@@ -53,59 +57,83 @@ const CoastGuardDashboard: React.FC<CoastGuardDashboardProps> = ({
       {/* Vessel Overview */}
       <div className="bg-white rounded-xl shadow-lg overflow-hidden">
         <div className="bg-gradient-to-r from-red-600 to-red-700 p-4 text-white">
-          <h3 className="text-lg font-semibold flex items-center">
-            <Users className="h-5 w-5 mr-2" />
-            Active Vessels ({boats.length})
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold flex items-center">
+              <Users className="h-5 w-5 mr-2" />
+              Active Vessels ({boats.length})
+            </h3>
+            <button
+              onClick={() => {
+                localStorage.removeItem('registeredVessels');
+                window.location.reload();
+              }}
+              className="text-xs bg-red-500 hover:bg-red-600 px-2 py-1 rounded transition-colors"
+            >
+              Clear All Vessels (Debug)
+            </button>
+          </div>
         </div>
         
         <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {boats.map((boat) => (
-              <div key={boat.aisId} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between mb-3">
-                  <h4 className="font-semibold text-gray-900">{boat.boatId}</h4>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(boat.status)}`}>
-                    {boat.status.toUpperCase()}
-                  </span>
-                </div>
-                
-                <div className="space-y-2 text-sm text-gray-600">
-                  <div className="flex items-center">
-                    <Users className="h-3 w-3 mr-2" />
-                    {boat.fishermanName}
-                  </div>
-                  <div className="flex items-center">
-                    <Phone className="h-3 w-3 mr-2" />
-                    {boat.contactInfo}
-                  </div>
-                  <div className="flex items-center">
-                    <MapPin className="h-3 w-3 mr-2" />
-                    {boat.location.lat.toFixed(4)}, {boat.location.lng.toFixed(4)}
-                  </div>
-                  <div className="flex items-center">
-                    <Clock className="h-3 w-3 mr-2" />
-                    {formatTime(boat.lastUpdate)}
-                  </div>
-                </div>
-
-                <div className="mt-3 flex space-x-2">
-                  <button
-                    onClick={() => onUpdateBoatStatus(boat.aisId, 'warning')}
-                    className="flex-1 bg-yellow-100 text-yellow-800 text-xs py-1 px-2 rounded hover:bg-yellow-200 transition-colors"
-                  >
-                    Set Warning
-                  </button>
-                  <button
-                    onClick={() => onUpdateBoatStatus(boat.aisId, 'safe')}
-                    className="flex-1 bg-green-100 text-green-800 text-xs py-1 px-2 rounded hover:bg-green-200 transition-colors"
-                  >
-                    Mark Safe
-                  </button>
-                </div>
+          {boats.length === 0 ? (
+            <div className="text-center py-12">
+              <Users className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+              <h4 className="text-lg font-medium text-gray-600 mb-2">No Active Vessels</h4>
+              <p className="text-sm text-gray-500 max-w-md mx-auto">
+                Waiting for fishermen to register their vessels. Once registered, they will appear here for monitoring.
+              </p>
+              <div className="mt-4 text-xs text-gray-400 font-mono bg-gray-100 p-2 rounded">
+                localStorage: {localStorage.getItem('registeredVessels') || 'none'}
               </div>
-            ))}
-          </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {boats.map((boat) => (
+                <div key={boat.aisId} className="border rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="font-semibold text-gray-900">{boat.boatId}</h4>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(boat.status)}`}>
+                      {boat.status.toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2 text-sm text-gray-600">
+                    <div className="flex items-center">
+                      <Users className="h-3 w-3 mr-2" />
+                      {boat.fishermanName}
+                    </div>
+                    <div className="flex items-center">
+                      <Phone className="h-3 w-3 mr-2" />
+                      {boat.contactInfo}
+                    </div>
+                    <div className="flex items-center">
+                      <MapPin className="h-3 w-3 mr-2" />
+                      {boat.location.lat.toFixed(4)}, {boat.location.lng.toFixed(4)}
+                    </div>
+                    <div className="flex items-center">
+                      <Clock className="h-3 w-3 mr-2" />
+                      {formatTime(boat.lastUpdate)}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex space-x-2">
+                    <button
+                      onClick={() => onUpdateBoatStatus(boat.aisId, 'warning')}
+                      className="flex-1 bg-yellow-100 text-yellow-800 text-xs py-1 px-2 rounded hover:bg-yellow-200 transition-colors"
+                    >
+                      Set Warning
+                    </button>
+                    <button
+                      onClick={() => onUpdateBoatStatus(boat.aisId, 'safe')}
+                      className="flex-1 bg-green-100 text-green-800 text-xs py-1 px-2 rounded hover:bg-green-200 transition-colors"
+                    >
+                      Mark Safe
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
