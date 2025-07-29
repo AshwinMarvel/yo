@@ -358,7 +358,75 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
             </div>
           </div>
         )}
-        
+
+        {showManualInput && (
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="text-sm text-blue-700">
+              <p className="font-medium mb-2">Manual Location Entry</p>
+              <p className="text-xs mb-3">Enter your current location coordinates (for Chennai coast area):</p>
+              <div className="grid grid-cols-2 gap-2 mb-3">
+                <input
+                  type="number"
+                  placeholder="Latitude (e.g. 13.0827)"
+                  value={manualLat}
+                  onChange={(e) => setManualLat(e.target.value)}
+                  step="0.000001"
+                  className="px-2 py-1 text-xs border rounded"
+                />
+                <input
+                  type="number"
+                  placeholder="Longitude (e.g. 80.2707)"
+                  value={manualLng}
+                  onChange={(e) => setManualLng(e.target.value)}
+                  step="0.000001"
+                  className="px-2 py-1 text-xs border rounded"
+                />
+              </div>
+              <div className="space-x-2">
+                <button
+                  onClick={() => {
+                    const lat = parseFloat(manualLat);
+                    const lng = parseFloat(manualLng);
+                    if (lat && lng && lat >= 12 && lat <= 14 && lng >= 79 && lng <= 82) {
+                      setLocationStatus('granted');
+                      setAccuracy(0);
+                      setLastUpdate(Date.now());
+                      setErrorMessage('');
+                      setShowManualInput(false);
+                      onLocationUpdate(lat, lng);
+                    } else {
+                      setErrorMessage('Please enter valid Chennai area coordinates');
+                    }
+                  }}
+                  className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors"
+                >
+                  Use This Location
+                </button>
+                <button
+                  onClick={() => {
+                    // Use default Chennai coordinates
+                    setLocationStatus('granted');
+                    setAccuracy(1000);
+                    setLastUpdate(Date.now());
+                    setErrorMessage('');
+                    setShowManualInput(false);
+                    onLocationUpdate(13.0827, 80.2707);
+                  }}
+                  className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                >
+                  Use Chennai Default
+                </button>
+                <button
+                  onClick={() => setShowManualInput(false)}
+                  className="px-3 py-1 bg-gray-100 text-gray-800 text-xs rounded hover:bg-gray-200 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {locationStatus === 'timeout' && (
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <div className="flex items-start">
