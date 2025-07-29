@@ -58,6 +58,12 @@ function App() {
   const [coastGuardLocation, setCoastGuardLocation] = useState<{lat: number, lng: number} | null>(null);
   const [isCoastGuardTracking, setIsCoastGuardTracking] = useState(false);
 
+  // Debug effect to track allBoats changes
+  useEffect(() => {
+    console.log('allBoats state changed:', allBoats);
+    console.log('Total vessels:', allBoats.length);
+  }, [allBoats]);
+
   // Auto-enable location tracking for coast guard (no simulated vessels)
   useEffect(() => {
     if (userType === 'coastguard') {
