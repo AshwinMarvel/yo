@@ -206,6 +206,7 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
       
       <div className="h-96 relative">
         <MapContainer
+          key={mapKey}
           center={defaultCenter}
           zoom={defaultZoom}
           style={{ height: '100%', width: '100%', zIndex: 1 }}
@@ -217,6 +218,10 @@ const WorldMap: React.FC<WorldMapProps> = ({ boats, userType, currentBoat, coast
           touchZoom={true}
           boxZoom={true}
           keyboard={true}
+          attributionControl={true}
+          zoomAnimation={true}
+          fadeAnimation={true}
+          markerZoomAnimation={true}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
