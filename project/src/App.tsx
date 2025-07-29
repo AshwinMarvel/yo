@@ -60,9 +60,13 @@ function App() {
 
   // Debug effect to track allBoats changes
   useEffect(() => {
+    console.log('=== allBoats Debug ===');
     console.log('allBoats state changed:', allBoats);
     console.log('Total vessels:', allBoats.length);
-  }, [allBoats]);
+    console.log('User type:', userType);
+    console.log('localStorage vessels:', localStorage.getItem('registeredVessels'));
+    console.log('=====================');
+  }, [allBoats, userType]);
 
   // Auto-enable location tracking for coast guard (no simulated vessels)
   useEffect(() => {
