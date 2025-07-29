@@ -54,9 +54,11 @@ function App() {
   const [coastGuardLocation, setCoastGuardLocation] = useState<{lat: number, lng: number} | null>(null);
   const [isCoastGuardTracking, setIsCoastGuardTracking] = useState(false);
 
-  // Simulate other boats for Coast Guard view
+  // Simulate other boats for Coast Guard view and auto-enable location tracking
   useEffect(() => {
     if (userType === 'coastguard') {
+      // Auto-enable location tracking for coast guard
+      setIsCoastGuardTracking(true);
       const simulatedBoats: BoatData[] = [
         {
           aisId: '987654321',
@@ -112,6 +114,10 @@ function App() {
       }, 5000);
 
       return () => clearInterval(moveInterval);
+    } else {
+      // Disable coast guard tracking when not in coast guard mode
+      setIsCoastGuardTracking(false);
+      setCoastGuardLocation(null);
     }
   }, [userType]);
 
