@@ -9,12 +9,16 @@ interface CoastGuardDashboardProps {
   messages: CoastGuardMessage[];
 }
 
-const CoastGuardDashboard: React.FC<CoastGuardDashboardProps> = ({ 
-  boats, 
-  onSendMessage, 
+const CoastGuardDashboard: React.FC<CoastGuardDashboardProps> = ({
+  boats,
+  onSendMessage,
   onUpdateBoatStatus,
-  messages 
+  messages
 }) => {
+
+  // Debug boats prop
+  console.log('CoastGuardDashboard received boats:', boats);
+  console.log('CoastGuardDashboard boats length:', boats.length);
   const [selectedBoat, setSelectedBoat] = useState<string>('');
   const [messageText, setMessageText] = useState('');
   const [messagePriority, setMessagePriority] = useState<'low' | 'medium' | 'high'>('medium');
