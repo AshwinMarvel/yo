@@ -167,7 +167,9 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
   const getStatusMessage = () => {
     switch (locationStatus) {
       case 'granted':
-        return 'GPS tracking active';
+        if (accuracy <= 50) return 'GPS tracking active - High precision';
+        if (accuracy <= 500) return 'GPS tracking active - Medium precision';
+        return 'GPS tracking active - Low precision';
       case 'denied':
         return 'Location access denied';
       case 'unavailable':
@@ -177,7 +179,7 @@ const LocationTracker: React.FC<LocationTrackerProps> = ({ onLocationUpdate, isT
       case 'unsupported':
         return 'GPS not supported';
       default:
-        return 'Requesting location access...';
+        return rejectedCount > 0 ? 'Improving GPS signal...' : 'Requesting location access...';
     }
   };
 
